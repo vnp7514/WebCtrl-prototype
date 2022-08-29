@@ -1,0 +1,10 @@
+/out/
+/.idea/
+/lib/
+/web/
+/xlsfiles/
+*.xlsx
+*.iml
+*.csv
+*.xml
+*.env

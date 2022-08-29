@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions targetNamespace="https://webctrl.ad.rit.edu:1443/_common/webservices/System" xmlns:apachesoap="http://xml.apache.org/xml-soap" xmlns:impl="https://webctrl.ad.rit.edu:1443/_common/webservices/System" xmlns:intf="https://webctrl.ad.rit.edu:1443/_common/webservices/System" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:wsdlsoap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--WSDL created by Apache Axis version: 1.4
+Built on Apr 22, 2006 (06:55:48 PDT)-->
+
+   <wsdl:message name="getWebAppGlobalDirectoryResponse">
+
+      <wsdl:part name="getWebAppGlobalDirectoryReturn" type="xsd:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="getPropertyRequest">
+
+      <wsdl:part name="propertyName" type="xsd:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="getPropertyResponse">
+
+      <wsdl:part name="getPropertyReturn" type="xsd:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="getWebAppStorageDirectoryResponse">
+
+      <wsdl:part name="getWebAppStorageDirectoryReturn" type="xsd:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="getWebAppGlobalDirectoryRequest">
+
+      <wsdl:part name="webAppName" type="xsd:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="getWebAppStorageDirectoryRequest">
+
+      <wsdl:part name="webAppName" type="xsd:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="getWebAppStoragePublicDirectoryRequest">
+
+      <wsdl:part name="webAppName" type="xsd:string"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="getWebAppStoragePublicDirectoryResponse">
+
+      <wsdl:part name="getWebAppStoragePublicDirectoryReturn" type="xsd:string"/>
+
+   </wsdl:message>
+
+   <wsdl:portType name="Systemapi">
+
+      <wsdl:operation name="getProperty" parameterOrder="propertyName">
+
+         <wsdl:input message="impl:getPropertyRequest" name="getPropertyRequest"/>
+
+         <wsdl:output message="impl:getPropertyResponse" name="getPropertyResponse"/>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="getWebAppGlobalDirectory" parameterOrder="webAppName">
+
+         <wsdl:input message="impl:getWebAppGlobalDirectoryRequest" name="getWebAppGlobalDirectoryRequest"/>
+
+         <wsdl:output message="impl:getWebAppGlobalDirectoryResponse" name="getWebAppGlobalDirectoryResponse"/>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="getWebAppStoragePublicDirectory" parameterOrder="webAppName">
+
+         <wsdl:input message="impl:getWebAppStoragePublicDirectoryRequest" name="getWebAppStoragePublicDirectoryRequest"/>
+
+         <wsdl:output message="impl:getWebAppStoragePublicDirectoryResponse" name="getWebAppStoragePublicDirectoryResponse"/>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="getWebAppStorageDirectory" parameterOrder="webAppName">
+
+         <wsdl:input message="impl:getWebAppStorageDirectoryRequest" name="getWebAppStorageDirectoryRequest"/>
+
+         <wsdl:output message="impl:getWebAppStorageDirectoryResponse" name="getWebAppStorageDirectoryResponse"/>
+
+      </wsdl:operation>
+
+   </wsdl:portType>
+
+   <wsdl:binding name="SystemSoapBinding" type="impl:Systemapi">
+
+      <wsdlsoap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+
+      <wsdl:operation name="getProperty">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="getPropertyRequest">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="http://soap.core.green.controlj.com" use="encoded"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="getPropertyResponse">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="https://webctrl.ad.rit.edu:1443/_common/webservices/System" use="encoded"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="getWebAppGlobalDirectory">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="getWebAppGlobalDirectoryRequest">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="http://soap.core.green.controlj.com" use="encoded"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="getWebAppGlobalDirectoryResponse">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="https://webctrl.ad.rit.edu:1443/_common/webservices/System" use="encoded"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="getWebAppStoragePublicDirectory">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="getWebAppStoragePublicDirectoryRequest">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="http://soap.core.green.controlj.com" use="encoded"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="getWebAppStoragePublicDirectoryResponse">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="https://webctrl.ad.rit.edu:1443/_common/webservices/System" use="encoded"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="getWebAppStorageDirectory">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="getWebAppStorageDirectoryRequest">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="http://soap.core.green.controlj.com" use="encoded"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="getWebAppStorageDirectoryResponse">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="https://webctrl.ad.rit.edu:1443/_common/webservices/System" use="encoded"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+   </wsdl:binding>
+
+   <wsdl:service name="SystemapiService">
+
+      <wsdl:port binding="impl:SystemSoapBinding" name="System">
+
+         <wsdlsoap:address location="https://webctrl.ad.rit.edu:1443/_common/webservices/System"/>
+
+      </wsdl:port>
+
+   </wsdl:service>
+
+</wsdl:definitions>

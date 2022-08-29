@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions targetNamespace="https://webctrl.ad.rit.edu:1443/_common/webservices/Trend" xmlns:apachesoap="http://xml.apache.org/xml-soap" xmlns:impl="https://webctrl.ad.rit.edu:1443/_common/webservices/Trend" xmlns:intf="https://webctrl.ad.rit.edu:1443/_common/webservices/Trend" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:wsdlsoap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--WSDL created by Apache Axis version: 1.4
+Built on Apr 22, 2006 (06:55:48 PDT)-->
+ <wsdl:types>
+  <schema targetNamespace="https://webctrl.ad.rit.edu:1443/_common/webservices/Trend" xmlns="http://www.w3.org/2001/XMLSchema">
+   <import namespace="http://schemas.xmlsoap.org/soap/encoding/"/>
+   <complexType name="ArrayOf_xsd_string">
+    <complexContent>
+     <restriction base="soapenc:Array">
+      <attribute ref="soapenc:arrayType" wsdl:arrayType="xsd:string[]"/>
+     </restriction>
+    </complexContent>
+   </complexType>
+  </schema>
+ </wsdl:types>
+
+   <wsdl:message name="getTrendDataRequest">
+
+      <wsdl:part name="trendLogPath" type="xsd:string"/>
+
+      <wsdl:part name="sTime" type="xsd:string"/>
+
+      <wsdl:part name="eTime" type="xsd:string"/>
+
+      <wsdl:part name="limitFromStart" type="xsd:boolean"/>
+
+      <wsdl:part name="maxRecords" type="xsd:int"/>
+
+   </wsdl:message>
+
+   <wsdl:message name="getTrendDataResponse">
+
+      <wsdl:part name="getTrendDataReturn" type="impl:ArrayOf_xsd_string"/>
+
+   </wsdl:message>
+
+   <wsdl:portType name="Trend">
+
+      <wsdl:operation name="getTrendData" parameterOrder="trendLogPath sTime eTime limitFromStart maxRecords">
+
+         <wsdl:input message="impl:getTrendDataRequest" name="getTrendDataRequest"/>
+
+         <wsdl:output message="impl:getTrendDataResponse" name="getTrendDataResponse"/>
+
+      </wsdl:operation>
+
+   </wsdl:portType>
+
+   <wsdl:binding name="TrendSoapBinding" type="impl:Trend">
+
+      <wsdlsoap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+
+      <wsdl:operation name="getTrendData">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="getTrendDataRequest">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="http://soap.core.green.controlj.com" use="encoded"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="getTrendDataResponse">
+
+            <wsdlsoap:body encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" namespace="https://webctrl.ad.rit.edu:1443/_common/webservices/Trend" use="encoded"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+   </wsdl:binding>
+
+   <wsdl:service name="TrendService">
+
+      <wsdl:port binding="impl:TrendSoapBinding" name="Trend">
+
+         <wsdlsoap:address location="https://webctrl.ad.rit.edu:1443/_common/webservices/Trend"/>
+
+      </wsdl:port>
+
+   </wsdl:service>
+
+</wsdl:definitions>
