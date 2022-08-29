@@ -20,8 +20,8 @@ public class Baseline {
             cells.get(0,1).setValue("CDD (\u00B0F.day/month)");
             cells.get(0,2).setValue("Intercept");
             cells.get(0,3).setValue("Slope");
-            cells.get(0,4).setValue("Adjusted Consumption");
-            cells.get(0, 5).setValue("Actual Consumption");
+            cells.get(0,4).setValue("Adjusted Consumption (thousand Btu)");
+            cells.get(0, 5).setValue("Actual Consumption (thousand Btu)");
             cells.get(0, 6).setValue("Savings");
             for (int i = 0; i < 12; i++){
                 Double actual = keyString_valueEnergy.get("Cooling").get(i);
@@ -43,8 +43,8 @@ public class Baseline {
             cells2.get(0,1).setValue("HDD (\u00B0F.day/month)");
             cells2.get(0,2).setValue("Intercept");
             cells2.get(0,3).setValue("Slope");
-            cells2.get(0,4).setValue("Adjusted Consumption");
-            cells2.get(0, 5).setValue("Actual Consumption");
+            cells2.get(0,4).setValue("Adjusted Consumption (thousand Btu)");
+            cells2.get(0, 5).setValue("Actual Consumption (thousand Btu)");
             cells2.get(0, 6).setValue("Savings");
             for (int i = 0; i < 12; i++){
                 Double actual = keyString_valueEnergy.get("Heating").get(i);
@@ -100,14 +100,14 @@ public class Baseline {
             Cells cells = worksheet.getCells();
             ArrayList<Double> values = new ArrayList<>();
             for (int i = 1; i <= cells.getMaxDataRow(); i++){
-                values.add(cells.get(i, 5).getDoubleValue());
+                values.add(cells.get(i, 4).getDoubleValue());
             }
             result.put("Cooling", values);
             Worksheet worksheet2 = workbook.getWorksheets().get("Heating BaseLine Info");
             Cells cells2 = worksheet2.getCells();
             ArrayList<Double> values2 = new ArrayList<>();
             for (int i = 1; i <= cells2.getMaxDataRow(); i++){
-                values2.add(cells2.get(i, 5).getDoubleValue());
+                values2.add(cells2.get(i, 4).getDoubleValue());
             }
             result.put("Heating", values2);
             return result;

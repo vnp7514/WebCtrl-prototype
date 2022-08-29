@@ -15,13 +15,13 @@ public class line_chart {
      * @param input the string to parse
      */
     public static ArrayList<Double> getInterceptAndSlope(String input){
-        Pattern p = Pattern.compile("(y\\s*=\\s*-?[0-9]*\\.[0-9]*x\\s*(-|\\+)\\s*[0-9]*\\.[0-9]*)\\n.*");
+        Pattern p = Pattern.compile("(y\\s*=\\s*-?[0-9]*\\.?[0-9]*x\\s*(-|\\+)\\s*[0-9]*\\.?[0-9]*)\\n.*");
         Matcher m = p.matcher(input);
         m.matches();
         String equation = m.group(1);
         System.out.println("raw: "+ input + "\n---------------------------------------------------------------------\n");
         System.out.println("equation: "+ equation);
-        Pattern p2 = Pattern.compile("y\\s*=\\s*(-?[0-9]*\\.[0-9]*)x\\s*((-|\\+)\\s*[0-9]*\\.[0-9]*)");
+        Pattern p2 = Pattern.compile("y\\s*=\\s*(-?[0-9]*\\.?[0-9]*)x\\s*((-|\\+)\\s*[0-9]*\\.?[0-9]*)");
         Matcher m2 = p2.matcher(equation);
         m2.matches();
         Double slope = Double.parseDouble(m2.group(1).replaceAll("\\s", ""));
@@ -92,13 +92,13 @@ public class line_chart {
             int chartIndex = worksheet.getCharts().add(ChartType.SCATTER, 10, 10, 20, 20);
             Chart chart = worksheet.getCharts().get(chartIndex);
             chart.getTitle().setText("CDD vs Cooling Energy");
-            chart.getCategoryAxis().getTitle().setText("Cooling Energy (thousand Btu)");
-            chart.getValueAxis().getTitle().setText("CDD (\u00B0F.day/month)");
+            chart.getCategoryAxis().getTitle().setText("CDD (\u00B0F.day/month)");
+            chart.getValueAxis().getTitle().setText("Cooling Energy (thousand Btu)");
             //Adding NSeries (chart data source) to the chart
-            chart.getNSeries().add("C2:C13", true);
-            chart.getNSeries().get(0).setName("CDD");
+            chart.getNSeries().add("E2:E13", true);
+            chart.getNSeries().get(0).setName("Cooling Energy");
             //Setting the data source for the category data of NSeries
-            chart.getNSeries().setCategoryData("E2:E13");
+            chart.getNSeries().setCategoryData("C2:C13");
             //adding a linear trendline
             int index = chart.getNSeries().get(0).getTrendLines().add(TrendlineType.LINEAR);
             Trendline trendline = chart.getNSeries().get(0).getTrendLines().get(index);
@@ -115,13 +115,13 @@ public class line_chart {
             int chartIndex2 = worksheet.getCharts().add(ChartType.SCATTER, 10, 10, 20, 20);
             Chart chart2 = worksheet.getCharts().get(chartIndex2);
             chart2.getTitle().setText("HDD vs Heating Energy");
-            chart2.getCategoryAxis().getTitle().setText("Heating Energy (thousand Btu)");
-            chart2.getValueAxis().getTitle().setText("HDD (\u00B0F.day/month)");
+            chart2.getCategoryAxis().getTitle().setText("HDD (\u00B0F.day/month)");
+            chart2.getValueAxis().getTitle().setText("Heating Energy (thousand Btu)");
             //Adding NSeries (chart data source) to the chart
-            chart2.getNSeries().add("B2:B13", true);
-            chart2.getNSeries().get(0).setName("HDD");
+            chart2.getNSeries().add("D2:D13", true);
+            chart2.getNSeries().get(0).setName("Heating Energy");
             //Setting the data source for the category data of NSeries
-            chart2.getNSeries().setCategoryData("D2:D13");
+            chart2.getNSeries().setCategoryData("B2:B13");
             //adding a linear trendline
             int index2 = chart2.getNSeries().get(0).getTrendLines().add(TrendlineType.LINEAR);
             Trendline trendline2 = chart2.getNSeries().get(0).getTrendLines().get(index2);
@@ -145,7 +145,7 @@ public class line_chart {
     }
 
     public static void main(String[] args) {
-        String filename = System.getProperty("user.dir") + "/src/70-AHU-03-TEST.xlsx";
+        String filename = System.getProperty("user.dir") + "/src/2021.xlsx";
         HashMap<String, ArrayList<Double>> slopeIntercepts = graphBaseLine(filename);
         makeBaseLineSheet(filename, slopeIntercepts);
     }
@@ -190,9 +190,7 @@ public class line_chart {
             cells.get(0,1).setValue("CDD (\u00B0F.day/month)");
             cells.get(0,2).setValue("Intercept");
             cells.get(0,3).setValue("Slope");
-            cells.get(0,4).setValue("Adjusted Consumption");
-            cells.get(0, 5).setValue("Actual Consumption");
-            cells.get(0, 6).setValue("Savings");
+            cells.get(0, 4).setValue("Actual Consumption (thousand Btu)");
             HashMap<Integer, ArrayList<Double>> keyMonth_ValueCDDCooling = getMonthCDDCoolingEnergy(fileName);
             for (Integer key: keyMonth_ValueCDDCooling.keySet()){
                 Double CDD = keyMonth_ValueCDDCooling.get(key).get(0);
@@ -201,9 +199,7 @@ public class line_chart {
                 cells.get(key, 1).setValue(CDD);
                 cells.get(key, 2).setValue(intercept);
                 cells.get(key, 3).setValue(slope);
-                cells.get(key, 4).setValue(slope*CDD + intercept);
-                cells.get(key, 5).setValue(cooling);
-                cells.get(key, 6).setValue(Math.abs((slope*CDD + intercept) - cooling));
+                cells.get(key, 4).setValue(cooling);
             }
             workbook.save(fileName);
 
@@ -229,9 +225,7 @@ public class line_chart {
             cells.get(0,1).setValue("HDD (\u00B0F.day/month)");
             cells.get(0,2).setValue("Intercept");
             cells.get(0,3).setValue("Slope");
-            cells.get(0,4).setValue("Adjusted Consumption");
-            cells.get(0, 5).setValue("Actual Consumption");
-            cells.get(0, 6).setValue("Savings");
+            cells.get(0, 4).setValue("Actual Consumption (thousand Btu)");
             HashMap<Integer, ArrayList<Double>> keyMonth_ValueHDDHeating = getMonthHDDHeatingEnergy(fileName);
             for (Integer key: keyMonth_ValueHDDHeating.keySet()){
                 Double HDD = keyMonth_ValueHDDHeating.get(key).get(0);
@@ -240,9 +234,7 @@ public class line_chart {
                 cells.get(key, 1).setValue(HDD);
                 cells.get(key, 2).setValue(intercept);
                 cells.get(key, 3).setValue(slope);
-                cells.get(key, 4).setValue(slope*HDD + intercept);
-                cells.get(key, 5).setValue(heating);
-                cells.get(key, 6).setValue(Math.abs((slope*HDD + intercept) - heating));
+                cells.get(key, 4).setValue(heating);
             }
             workbook.save(fileName);
 
