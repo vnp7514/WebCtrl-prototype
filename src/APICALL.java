@@ -3,6 +3,8 @@ import com.aspose.cells.Workbook;
 import com.aspose.cells.Worksheet;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.sun.source.tree.Tree;
+
 import java.lang.reflect.Type;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -11,6 +13,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Scanner;
+import java.util.TreeMap;
 
 public class APICALL {
     private class Data {
@@ -37,10 +40,10 @@ public class APICALL {
      * @param endDate format: 2022-12-31
      * @return
      */
-    public static HashMap<String, Double> retrieveData(String startDate, String endDate){
+    public static TreeMap<String, Double> retrieveData(String station, String startDate, String endDate){
         try{
             String urlString = "https://www.ncei.noaa.gov/access/services/data/v1?" +
-                    "dataset=daily-summaries&stations=USW00014768&startDate="+
+                    "dataset=daily-summaries&stations="+station+"&startDate="+
                     startDate+"&endDate="+endDate+"&format=json&units=standard";
             URL url = new URL(urlString);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -67,7 +70,7 @@ public class APICALL {
                 Type collectionType = new TypeToken<Collection<Data>>(){}.getType();
                 Collection<Data> data = gson.fromJson(inline, collectionType);
 
-                HashMap<String, Double> keyDate_valueTAVG = new HashMap<>();
+                TreeMap<String, Double> keyDate_valueTAVG = new TreeMap<>();
                 for (Data datum : data){
                     keyDate_valueTAVG.put(datum.DATE, datum.TAVG);
                 }
@@ -79,9 +82,21 @@ public class APICALL {
         return null;
     }
 
-    public static void saveToExcel(String fileName, HashMap<String, Double> keyDate_valueTAVG){
+    public static void saveToExcel(String fileName){
         try{
             Workbook workbook = new Workbook(fileName);
+
+            // Obtain the input for the retrieval process
+            ////////////////////////////START
+            Worksheet inputs = workbook.getWorksheets().get("Input for Degree Days");
+            Cells inputCells = inputs.getCells();
+            String station = inputCells.get(1, 0).getStringValue();
+            String startDate = inputCells.get(1,1).getStringValue();
+            String endDate = inputCells.get(1,2).getStringValue();
+            TreeMap<String, Double> keyDate_valueTAVG = retrieveData(station, startDate, endDate);
+            /////////////////////////////END
+
+
             Worksheet worksheet = workbook.getWorksheets().add("Degree Days");
             Cells cells = worksheet.getCells();
             cells.get(0,0).setValue("Date");
@@ -124,7 +139,6 @@ public class APICALL {
     }
 
     public static void main(String args[]){
-        //HashMap<String, Double> result = retrieveData();
-        //saveToExcel(System.getProperty("user.dir") + "/src/70-AHU-03-TEST.xlsx", result);
+        saveToExcel(System.getProperty("user.dir") + "/src/TEST.xlsx");
     }
 }

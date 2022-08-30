@@ -15,13 +15,11 @@ import org.apache.poi.xssf.usermodel.*;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
+import java.util.*;
 
 public class util {
     private static final Dotenv dotenv = Dotenv.load();
@@ -101,7 +99,9 @@ public class util {
                 Double interval = intervals.get(i);
                 for (String period : values.keySet()){
                     for (int a = 0; a < values.get(period).size(); a++){
-                        sums.get(i).set( a, sums.get(i).get(a) + ( values.get(period).get(a)*interval ) );
+                        Double current = sums.get(i).get(a);
+                        Double addition = values.get(period).get(a)*interval;
+                        sums.get(i).set( a, current + ( addition ) );
                     }
                 }
             }
@@ -401,10 +401,12 @@ public class util {
                 int a = 0;
                 while (a < pulledData.length){
                     if (sorted.containsKey(pulledData[a])){
-                        for (int d = sorted.get(pulledData[a]).size(); d < i; d++){
-                            sorted.get(pulledData[a]).add("");
+                        if (sorted.get(pulledData[a]).size() <= i) {
+                            for (int d = sorted.get(pulledData[a]).size(); d < i; d++) {
+                                sorted.get(pulledData[a]).add("");
+                            }
+                            sorted.get(pulledData[a]).add(pulledData[a + 1]);
                         }
-                        sorted.get(pulledData[a]).add(pulledData[a+1]);
                     } else {
                         ArrayList<String> valuesAtThisTime = new ArrayList<>();
                         for (int d = 0; d < i; d++){
@@ -428,9 +430,9 @@ public class util {
             ///// END OF TREND VALUES SORTED
 
             LinkedHashMap<String, ArrayList<Double>> result1 = calculateEnergy(location, parameters.get(0), sorted);
-            ArrayList<LinkedHashMap<Integer, Double>> result2 = calculateDayEnergy(location, parameters.get(0), sorted);
             makeDaySheet(location, parameters.get(0), sorted);
             makeMonthEnergySheet(location, result1);
+            makeDayEnergySheet(location, result1);
 
         } catch (Exception e){
             System.err.println("baseLineTask error "+e.getMessage());
@@ -680,58 +682,6 @@ public class util {
         return null;
     }
 
-    private static ArrayList<LinkedHashMap<Integer, Double>> calculateDayEnergy(String location, ArrayList<String> names, LinkedHashMap<String, ArrayList<String>> sorted){
-        try{
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm:ss a");
-            int econ = 0;
-            int mat = 0;
-            int sat = 0;
-            int sacfm = 0;
-            int oat = 0;
-            for (int i = 0; i < names.size(); i++){
-                String name = names.get(i);
-                if (name.equalsIgnoreCase("Economizer")){
-                    econ = i;
-                } else if (name.equalsIgnoreCase("MAT (℉)")){
-                    mat = i;
-                } else if (name.equalsIgnoreCase("SAT (℉)")){
-                    sat = i;
-                } else if (name.equalsIgnoreCase("SACFM")){
-                    sacfm = i;
-                } else if (name.equalsIgnoreCase("OAT (℉)")){
-                    oat = i;
-                }
-            }
-            if (econ == mat || econ == sat || econ == sacfm || econ == oat || mat == sat
-                    || mat == sacfm || mat == oat || sat == sacfm || sat == oat
-                    || sacfm == oat) {
-                throw new Exception("not enough arguments");
-            }
-
-            LinkedHashMap<Integer, ArrayList<ArrayList<String>>> dayValuesMap = new LinkedHashMap<>();
-            // Key: dayOfYear Value: month value
-            LinkedHashMap<Integer, Integer> dayMonthMap = new LinkedHashMap<>();
-            for (String period : sorted.keySet()){
-                LocalDateTime date = LocalDateTime.parse(period, formatter);
-                int dayOfYear = date.getDayOfYear();
-                dayMonthMap.put(dayOfYear, date.getMonthValue());
-                ArrayList<String> allValues = new ArrayList<>();
-                allValues.add(period);
-                allValues.addAll(sorted.get(period));
-                if (dayValuesMap.containsKey(dayOfYear)){
-                    dayValuesMap.get(dayOfYear).add(allValues);
-                } else {
-                    ArrayList<ArrayList<String>> values = new ArrayList<>();
-                    values.add(allValues);
-                    dayValuesMap.put(dayOfYear, values);
-                }
-            }
-        } catch (Exception e){
-            System.err.println("calculateDayEnergy error  " + e.getMessage());
-        }
-        return null;
-    }
-
     public static void makeTrendValuesSheet(String fileName, ArrayList<String> names, ArrayList<String[]> data){
         try {
             Workbook workbook = new Workbook(fileName);
@@ -812,4 +762,50 @@ public class util {
         }
     }
 
+    public static void makeDayEnergySheet(String filename, LinkedHashMap<String, ArrayList<Double>> energy){
+        TreeMap<Integer, Double> keyDayOfYear_valueCoolingEnergy = new TreeMap<>();
+        TreeMap<Integer, Double> keyDayOfYear_valueHeatingEnergy = new TreeMap<>();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm:ss a");
+        for (String period: energy.keySet() ){
+            LocalDateTime date = LocalDateTime.parse(period, formatter);
+            if (keyDayOfYear_valueCoolingEnergy.containsKey(date.getDayOfYear())){
+                Double current = keyDayOfYear_valueCoolingEnergy.get(date.getDayOfYear());
+                keyDayOfYear_valueCoolingEnergy.put(date.getDayOfYear(), current + energy.get(period).get(0));
+            } else {
+                keyDayOfYear_valueCoolingEnergy.put(date.getDayOfYear(), energy.get(period).get(0));
+            }
+            if (keyDayOfYear_valueHeatingEnergy.containsKey(date.getDayOfYear())){
+                Double current = keyDayOfYear_valueHeatingEnergy.get(date.getDayOfYear());
+                keyDayOfYear_valueHeatingEnergy.put(date.getDayOfYear(), current + energy.get(period).get(1));
+            } else {
+                keyDayOfYear_valueHeatingEnergy.put(date.getDayOfYear(), energy.get(period).get(1));
+            }
+        }
+        try {
+            int dateCol = 0;
+            int CDDCol = 2;
+            int HDDCol = 3;
+            int CoolingCol= 5;
+            int HeatingCol = 4;
+
+            Workbook workbook = new Workbook(filename);
+            Worksheet worksheet = workbook.getWorksheets().get("Degree Days");
+            Cells cells = worksheet.getCells();
+            cells.get(0, CoolingCol).setValue("Cooling Energy (thousand Btu)");
+            cells.get(0,HeatingCol).setValue("Heating Energy (thousand Btu)");
+            for (int i = 1; i <= cells.getLastDataRow(dateCol); i++){
+                String date = cells.get(i, dateCol).getStringValue();
+                LocalDate localDate = LocalDate.parse(date);
+                int dayOfYear = localDate.getDayOfYear();
+                cells.get(i, CoolingCol).setValue(keyDayOfYear_valueCoolingEnergy.get(dayOfYear));
+                cells.get(i, HeatingCol).setValue(keyDayOfYear_valueHeatingEnergy.get(dayOfYear));
+            }
+            workbook.save(filename);
+        } catch (Exception e) {
+            System.err.println("Error in makeDayEnergySheet " + e.getMessage());
+        }
+    }
+    public static void main(String[] args){
+
+    }
 }

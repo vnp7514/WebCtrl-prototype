@@ -7,22 +7,24 @@ public class Main {
 
     public static void main(String args[]) {
         // The excel that contains the slope and intercept to be used
-        String preRetrofit = System.getProperty("user.dir") + "/src/2018.xlsx";
+        String preRetrofit = System.getProperty("user.dir") + "/src/TEST.xlsx";
         // The excel that contains the information of the year to be compared to the baseline
-        String postRetrofit = System.getProperty("user.dir") + "/src/2022.xlsx";
+        String postRetrofit = System.getProperty("user.dir") + "/src/TEST2.xlsx";
         // The excel that will contains the baseLine comparison
         String output = System.getProperty("user.dir") + "/src/baseline.xlsx";
 
-        APICALL.saveToExcel(preRetrofit, APICALL.retrieveData("2018-01-01", "2018-12-31"));
+        APICALL.saveToExcel(preRetrofit);
         util.baseLineTask(preRetrofit);
         line_chart.makeBaseLineSheet(preRetrofit, line_chart.graphBaseLine(preRetrofit));
+        line_chart.graphBaselinePerDay(preRetrofit);
         System.out.println("-----------------------------------------------------------------------------------------" +
                 "\nFinish creating the file for baseline\n" +
                 "----------------------------------------------------------------------------------------------------\n\n");
 
-        APICALL.saveToExcel(postRetrofit, APICALL.retrieveData("2022-01-01", "2022-12-31"));
+        APICALL.saveToExcel(postRetrofit);
         util.baseLineTask(postRetrofit);
         line_chart.makeBaseLineSheet(postRetrofit, line_chart.graphBaseLine(postRetrofit));
+        line_chart.graphBaselinePerDay(postRetrofit);
         System.out.println("-----------------------------------------------------------------------------------------" +
                 "\nFinish creating the file for compare\n" +
                 "----------------------------------------------------------------------------------------------------\n\n");

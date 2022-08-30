@@ -145,9 +145,8 @@ public class line_chart {
     }
 
     public static void main(String[] args) {
-        String filename = System.getProperty("user.dir") + "/src/2021.xlsx";
-        HashMap<String, ArrayList<Double>> slopeIntercepts = graphBaseLine(filename);
-        makeBaseLineSheet(filename, slopeIntercepts);
+        String filename = System.getProperty("user.dir") + "/src/TEST.xlsx";
+        graphBaselinePerDay(filename);
     }
 
     /**
@@ -170,6 +169,57 @@ public class line_chart {
 
         } catch (Exception e) {
             System.err.println("makeBaseLineSheet error" + e.getMessage());
+        }
+    }
+
+    public static void graphBaselinePerDay(String fileName){
+        try{
+            Workbook workbook = new Workbook(fileName);
+            Worksheet worksheet = workbook.getWorksheets().get("Degree Days");
+            Cells cells = worksheet.getCells();
+            int chartIndex = worksheet.getCharts().add(ChartType.SCATTER, 10, 10, 20, 20);
+            Chart chart = worksheet.getCharts().get(chartIndex);
+            chart.getTitle().setText("CDD vs Cooling Energy");
+            chart.getCategoryAxis().getTitle().setText("CDD (\u00B0F.day)");
+            chart.getValueAxis().getTitle().setText("Cooling Energy (thousand Btu)");
+            //Adding NSeries (chart data source) to the chart
+            chart.getNSeries().add("F2:F" + (cells.getLastDataRow(5)+1), true);
+            chart.getNSeries().get(0).setName("Cooling Energy");
+            //Setting the data source for the category data of NSeries
+            chart.getNSeries().setCategoryData("D2:D" + (cells.getLastDataRow(3)+1));
+            //adding a linear trendline
+            int index = chart.getNSeries().get(0).getTrendLines().add(TrendlineType.LINEAR);
+            Trendline trendline = chart.getNSeries().get(0).getTrendLines().get(index);
+            //Setting the custom name of the trendline.
+            trendline.setName("CDD vs Cooling Energy");
+            //Displaying the equation on chart
+            trendline.setDisplayEquation(true);
+            //Displaying the R-Squared value on chart
+            trendline.setDisplayRSquared(true);
+
+            int chartIndex2 = worksheet.getCharts().add(ChartType.SCATTER, 10, 10, 20, 20);
+            Chart chart2 = worksheet.getCharts().get(chartIndex2);
+            chart2.getTitle().setText("HDD vs Heating Energy");
+            chart2.getCategoryAxis().getTitle().setText("HDD (\u00B0F.day)");
+            chart2.getValueAxis().getTitle().setText("Heating Energy (thousand Btu)");
+            //Adding NSeries (chart data source) to the chart
+            chart2.getNSeries().add("E2:E" + (cells.getLastDataRow(4)+1), true);
+            chart2.getNSeries().get(0).setName("Heating Energy");
+            //Setting the data source for the category data of NSeries
+            chart2.getNSeries().setCategoryData("C2:C" + (cells.getLastDataRow(2)+1));
+            //adding a linear trendline
+            int index2 = chart2.getNSeries().get(0).getTrendLines().add(TrendlineType.LINEAR);
+            Trendline trendline2 = chart2.getNSeries().get(0).getTrendLines().get(index2);
+            //Setting the custom name of the trendline.
+            trendline2.setName("HDD vs Heating Energy");
+            //Displaying the equation on chart
+            trendline2.setDisplayEquation(true);
+            //Displaying the R-Squared value on chart
+            trendline2.setDisplayRSquared(true);
+
+            workbook.save(fileName);
+        } catch (Exception e){
+            System.err.println("error in graphBaseLinePerDay" + e.getMessage());
         }
     }
 
