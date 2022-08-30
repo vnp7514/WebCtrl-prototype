@@ -6,6 +6,9 @@ This is a prototype to create a baseline graph from existing data. The data is o
 1. Aspose Cells for Java. https://docs.aspose.com/cells/java/
 2. GSON. https://github.com/google/gson
 3. dotenv-java. https://github.com/cdimascio/dotenv-java
+4. NOAA API links.  https://www.ncei.noaa.gov/support/access-data-service-api-user-documentation
+5. List of stations for NOAA API: https://www1.ncdc.noaa.gov/pub/data/ghcn/daily/ghcnd-stations.txt
+6. Detailed documentation on NOAA API link: https://www.ncei.noaa.gov/pub/data/cdo/documentation/GHCND_documentation.pdf
 
 ## How to use
 1. Setting up environment variables to login to webctrl. Create a file named `.env` with these values: 
@@ -21,7 +24,6 @@ Create an Excel with the following values in a Sheet named: `Trend`
 ![Example](./images/example.png)
 
 The column `Type` contains the names of the data. This name will appear on other sheets to indicate where the data is coming from. The names provided in the example are must-have name. Without these, the code will not work.
-
 
 The column `Path` contains the path to the data on WebCtrl.
 
