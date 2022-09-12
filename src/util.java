@@ -1,10 +1,13 @@
 import Eval.EvalServiceLocator;
 import Eval.EvalSoapBindingStub;
+import ReportWSDL.ReportServiceLocator;
+import ReportWSDL.ReportSoapBindingStub;
 import SystemWSDL.SystemSoapBindingStub;
 import SystemWSDL.SystemapiServiceLocator;
 import Trend.TrendServiceLocator;
 import Trend.TrendSoapBindingStub;
 import com.aspose.cells.*;
+import com.opencsv.CSVReader;
 import io.github.cdimascio.dotenv.Dotenv;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
@@ -14,6 +17,7 @@ import org.apache.poi.xssf.usermodel.*;
 
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.StringReader;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -25,6 +29,13 @@ public class util {
     private static final Dotenv dotenv = Dotenv.load();
     private static final String user = dotenv.get("USER");
     private static final String password = dotenv.get("PASS");
+    private static final int nameCol = 0;
+    private static final int pathCol = 1;
+    private static final int startTimeCol = 2;
+    private static final int endTimeCol = 3;
+    private static final int limitFromStartCol = 4;
+    private static final int maxRecordsCol = 5;
+    private static final int reportNameCol = 2;
 
     /**
      * Make the graph for day
@@ -762,6 +773,21 @@ public class util {
         }
     }
 
+    private static String getReportsFromWebCtrl(String location, String reportName){
+        try {
+            ReportServiceLocator el = new ReportServiceLocator();
+            ReportSoapBindingStub es = (ReportSoapBindingStub) el.getReport();
+
+            es.setPassword(password);
+            es.setUsername(user);
+            return es.runReport(location, reportName, "CSV");
+
+        } catch (Exception e) {
+            System.err.println("error in getReportsFromWebCtrl " + e.getMessage());
+        }
+        return null;
+    }
+
     public static void makeDayEnergySheet(String filename, LinkedHashMap<String, ArrayList<Double>> energy){
         TreeMap<Integer, Double> keyDayOfYear_valueCoolingEnergy = new TreeMap<>();
         TreeMap<Integer, Double> keyDayOfYear_valueHeatingEnergy = new TreeMap<>();
@@ -805,7 +831,92 @@ public class util {
             System.err.println("Error in makeDayEnergySheet " + e.getMessage());
         }
     }
-    public static void main(String[] args){
 
+    /**
+     * This will get the necessary inputs from the specified row (with the specified rowName) and pull data from WebCtrl
+     * @param worksheet the worksheet we are working with
+     * @param rowName the name of the row where the inputs are
+     * @return the data from WebCtrl
+     */
+    public static String[] pullDataFromWebCtrl(Worksheet worksheet, String rowName) throws Exception {
+        Cells cells = worksheet.getCells();
+        int rowIndex = -1;
+        for (int i = 0; i <= cells.getMaxDataRow(); i++){
+            if (cells.get(i, nameCol).getStringValue().equalsIgnoreCase(rowName)){
+                rowIndex = i;
+                break;
+            }
+        }
+        if (rowIndex == -1){
+            throw new Exception("No such row names to pullDataFromWebCtrl");
+        }
+        String path = cells.get(rowIndex, pathCol).getStringValue();
+        String startTime = cells.get(rowIndex, startTimeCol).getStringValue();
+        String endTime = cells.get(rowIndex, endTimeCol).getStringValue();
+        Boolean limitFromStart = cells.get(rowIndex, limitFromStartCol).getBoolValue();
+        Integer maxRecords = cells.get(rowIndex, maxRecordsCol).getIntValue();
+        return getDataFromTrend(path, startTime, endTime, limitFromStart, maxRecords);
+    }
+
+
+    /**
+     * This will be used to save data returned from WebCtrl
+     * @param worksheet the worksheet where the data will be saved to
+     * @param col the column where the data should start
+     * @param row the row where the data should start
+     * @param data the data in the format: [time1, value1, time2, value2, ...., timeN, valueN)
+     * @param name the name of the data
+     */
+    public static void saveRawDataToExcel(String name, Worksheet worksheet, int col, int row, String[] data){
+        Cells cells = worksheet.getCells();
+        int currentRow = row;
+        cells.get(currentRow, col).setValue("Date");
+        cells.get(currentRow, col+1).setValue(name);
+        currentRow++;
+        for (int i = 0; i < data.length; i+=2 ){
+            cells.get(currentRow, col).setValue(data[i]);
+            cells.get(currentRow, col+1).setValue(data[i+1]);
+            currentRow++;
+        }
+    }
+
+    public static List<String[]> pullReportsFromWebCtrl(Worksheet worksheet, String rowName) throws Exception {
+        Cells cells = worksheet.getCells();
+        int rowIndex = -1;
+        for (int i = 0; i <= cells.getMaxDataRow(); i++){
+            if (cells.get(i, nameCol).getStringValue().equalsIgnoreCase(rowName)){
+                rowIndex = i;
+                break;
+            }
+        }
+        if (rowIndex == -1){
+            throw new Exception("No such row names to pullDataFromWebCtrl");
+        }
+        String location = cells.get(rowIndex, pathCol).getStringValue();
+        String reportName = cells.get(rowIndex, reportNameCol).getStringValue();
+        String report = getReportsFromWebCtrl(location, reportName);
+        assert report != null;
+        CSVReader reader = new CSVReader(new StringReader(report));
+        return reader.readAll();
+    }
+
+    public static void saveReportToExcel(Worksheet worksheet, List<String[]> report){
+        Cells cells = worksheet.getCells();
+        int initialCol = 0;
+        int row = 0;
+        int col = 0;
+        for (String[] line: report){
+            for (String item: line){
+                cells.get(row, col).setValue(item);
+                col++;
+            }
+            col = initialCol;
+            row++;
+        }
+    }
+
+    public static void main(String[] args){
+//        String filename = System.getProperty("user.dir") + "/src/OCCUPANCY.xlsx";
+//        saveReportsFromWebCtrlToExcel(filename, "/trees/geographic/rochester_campus/building_70", "~effective-schedule");
     }
 }
