@@ -918,5 +918,6 @@ public class util {
     public static void main(String[] args){
 //        String filename = System.getProperty("user.dir") + "/src/OCCUPANCY.xlsx";
 //        saveReportsFromWebCtrlToExcel(filename, "/trees/geographic/rochester_campus/building_70", "~effective-schedule");
+        System.out.println(getReportsFromWebCtrl("/trees/geographic/rochester_campus/building_70", "~effective-schedule"));
     }
 }

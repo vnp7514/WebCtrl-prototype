@@ -1,7 +1,4 @@
-import com.aspose.cells.Cells;
-import com.aspose.cells.DateTime;
-import com.aspose.cells.Workbook;
-import com.aspose.cells.Worksheet;
+import com.aspose.cells.*;
 import com.sun.source.tree.Tree;
 
 import java.time.DayOfWeek;
@@ -22,6 +19,11 @@ public class Occupancy_Profile {
     private static int occupancyProfileReport = 15;
     private static int occupancyProfileTrend = 30;
     private static int occupancyProfileSIS = 0;
+    private static int chartArrayName = 0;
+    private static int chartArrayData = 1;
+    private static int weeklyCategoryAxisTickLabelSpacing = 24;
+    private static int weeklyCategoryAxisTickMarkSpacing = 12;
+    private static int weeklyCategoryAxisTickLabelTextRotation = 90;
 
     /**
      * Used to check whether all arrays are of the same size.
@@ -78,10 +80,11 @@ public class Occupancy_Profile {
         try{
             Workbook workbook = new Workbook(fileName);
 
-            occupancyProfileForWebCtrlTrendData(workbook);
-            occupancyProfileForSISData(workbook);
-            occupancyProfileForWebCtrlReportData(workbook);
+//            occupancyProfileForWebCtrlTrendData(workbook);
+//            occupancyProfileForSISData(workbook);
+//            occupancyProfileForWebCtrlReportData(workbook);
 
+            graphOccupancyProfiles(workbook);
             workbook.save(fileName);
 
         } catch (Exception e){
@@ -348,6 +351,7 @@ public class Occupancy_Profile {
         Worksheet worksheet = getWorksheetFromWorkbook(workbook,"SIS data");
         Worksheet roomInputWorksheet = getWorksheetFromWorkbook(workbook, "Room Input data0");
         Worksheet occupancyProfileWorksheet = getWorksheetFromWorkbook(workbook,"OccupancyProfile");
+        Worksheet continuousOccupancyProfileWorksheet = getWorksheetFromWorkbook(workbook, "ContinuousOccupancyProfile");
 
 
         ArrayList<LocalTime> reservedStartList = getLocalTimeFromExcel(worksheet, "Mtg Start");
@@ -376,6 +380,7 @@ public class Occupancy_Profile {
                 thursdayList, fridayList, saturdayList, sundayList, uncertaintyList,vavIDList);
 
         writeOccupancyTablesMappingstoExcel(occupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileSIS, 0);
+        writeOccupancyTableMappingsContinuouslyToExcel(continuousOccupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileSIS, 0);
     }
 
     private static void occupancyProfileForWebCtrlReportData(Workbook workbook) throws Exception {
@@ -383,6 +388,7 @@ public class Occupancy_Profile {
         Worksheet inputWorksheet = getWorksheetFromWorkbook(workbook,"WebCtrlReportInput");
         Worksheet rawDataWorksheet = getWorksheetFromWorkbook(workbook,"ReportRawData");
         Worksheet occupancyProfileWorksheet = getWorksheetFromWorkbook(workbook,"OccupancyProfile");
+        Worksheet continuousOccupancyProfileWorksheet = getWorksheetFromWorkbook(workbook, "ContinuousOccupancyProfile");
         List<String[]> report = util.pullReportsFromWebCtrl(inputWorksheet, "Effective Schedule");
         util.saveReportToExcel(rawDataWorksheet, report);
         TreeMap<Integer, TreeMap<LocalTime, Integer>> keyDayOfWeek_valueOccupancyTable = createOccupancyTableMappingsFromReport(report, vav);
@@ -390,6 +396,7 @@ public class Occupancy_Profile {
         multiplyOccupiedStateByMaxOccupancyValue(keyDayOfWeek_valueOccupancyTable, workbook);
 
         writeOccupancyTablesMappingstoExcel(occupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileReport, 0);
+        writeOccupancyTableMappingsContinuouslyToExcel(continuousOccupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileReport, 0);
     }
 
     private static void multiplyOccupiedStateByMaxOccupancyValue(TreeMap<Integer, TreeMap<LocalTime, Integer>> keyDayOfWeek_valueOccupancyTable, Workbook workbook) throws Exception {
@@ -421,6 +428,7 @@ public class Occupancy_Profile {
         Worksheet inputWorksheet = getWorksheetFromWorkbook(workbook,"WebCtrl Input");
         Worksheet rawDataWorksheet = getWorksheetFromWorkbook(workbook,"Trend Data");
         Worksheet occupancyProfileWorksheet = getWorksheetFromWorkbook(workbook,"OccupancyProfile");
+        Worksheet continuousOccupancyProfileWorksheet = getWorksheetFromWorkbook(workbook, "ContinuousOccupancyProfile");
 
         String[] results = util.pullDataFromWebCtrl(inputWorksheet, "Occupancy Contact State");
         util.saveRawDataToExcel("Occupancy Contact State", rawDataWorksheet, 0, 0, results);
@@ -428,7 +436,7 @@ public class Occupancy_Profile {
 
         for (int i = 0; i < results.length; i+=2){
             LocalDateTime date = LocalDateTime.parse(results[i], dateTimeFormatter);
-            Boolean isOn = results[i + 1].equalsIgnoreCase("0");
+            Boolean isOn = results[i + 1].equalsIgnoreCase("1");
 
             int dayOfWeek = date.getDayOfWeek().getValue();
             TreeMap<LocalTime, Integer> occupancyTable = keyDayOfWeek_valueOccupancyTable.get(dayOfWeek);
@@ -445,9 +453,8 @@ public class Occupancy_Profile {
                 }
             }
         }
-        multiplyOccupiedStateByMaxOccupancyValue(keyDayOfWeek_valueOccupancyTable, workbook);
         writeOccupancyTablesMappingstoExcel(occupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileTrend, 0);
-
+        writeOccupancyTableMappingsContinuouslyToExcel(continuousOccupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileTrend, 0);
     }
 
     private static void parseOccupancyStateFromReport(String state, TreeMap<Integer, TreeMap<LocalTime, Integer>> keyDayOfWeek_valueOccupancyTable){
@@ -495,4 +502,259 @@ public class Occupancy_Profile {
         }
     }
 
+    private static void writeOccupancyTableMappingsContinuouslyToExcel(Worksheet worksheet, TreeMap<Integer, TreeMap<LocalTime, Integer>> keyDayOfWeek_valueOccupancyTable, int row, int col){
+        Cells cells = worksheet.getCells();
+        cells.get(row, col).setValue("Time");
+        cells.get(row+1, col).setValue("Value");
+        col++;
+        for (Integer dayOfWeek : keyDayOfWeek_valueOccupancyTable.keySet()){
+            String code = DayOfWeek.of(dayOfWeek).toString().substring(0,3);
+            TreeMap<LocalTime, Integer> occupancyTable = keyDayOfWeek_valueOccupancyTable.get(dayOfWeek);
+            for (LocalTime time: occupancyTable.keySet()){
+                cells.get(row, col).setValue(code + " " + time.toString());
+                cells.get(row+1, col).setValue(occupancyTable.get(time));
+                col++;
+            }
+        }
+    }
+
+    private static void graphDayByDayOccupancyProfiles(Workbook workbook){
+        // ********************Graph A
+        // Monday
+        graphOccupancyProfile(workbook, "Monday SIS vs effective schedule",
+                "Population",
+                new ArrayList<>(Arrays.asList("Time", "B1:CS1")),
+                new ArrayList<>(Arrays.asList(
+                        new ArrayList<>(Arrays.asList("SIS", "B2:CS2")),
+                        new ArrayList<>(Arrays.asList("Effective Schedule", "B17:CS17"))
+                )),
+                0, 0, 10, 10);
+        // Tuesday
+        graphOccupancyProfile(workbook, "Tuesday SIS vs effective schedule",
+                "Population",
+                new ArrayList<>(Arrays.asList("Time", "B1:CS1")),
+                new ArrayList<>(Arrays.asList(
+                        new ArrayList<>(Arrays.asList("SIS", "B3:CS3")),
+                        new ArrayList<>(Arrays.asList("Effective Schedule", "B18:CS18"))
+                )),
+                0, 10, 10, 20);
+        // Wednesday
+        graphOccupancyProfile(workbook, "Wednesday SIS vs effective schedule",
+                "Population",
+                new ArrayList<>(Arrays.asList("Time", "B1:CS1")),
+                new ArrayList<>(Arrays.asList(
+                        new ArrayList<>(Arrays.asList("SIS", "B4:CS4")),
+                        new ArrayList<>(Arrays.asList("Effective Schedule", "B19:CS19"))
+                )),
+                0, 20, 10, 30);
+        // Thursday
+        graphOccupancyProfile(workbook, "Thursday SIS vs effective schedule",
+                "Population",
+                new ArrayList<>(Arrays.asList("Time", "B1:CS1")),
+                new ArrayList<>(Arrays.asList(
+                        new ArrayList<>(Arrays.asList("SIS", "B5:CS5")),
+                        new ArrayList<>(Arrays.asList("Effective Schedule", "B20:CS20"))
+                )),
+                0, 30, 10, 40);
+        // Friday
+        graphOccupancyProfile(workbook, "Friday SIS vs effective schedule",
+                "Population",
+                new ArrayList<>(Arrays.asList("Time", "B1:CS1")),
+                new ArrayList<>(Arrays.asList(
+                        new ArrayList<>(Arrays.asList("SIS", "B6:CS6")),
+                        new ArrayList<>(Arrays.asList("Effective Schedule", "B21:CS21"))
+                )),
+                0, 40, 10, 50);
+        // Saturday
+        graphOccupancyProfile(workbook, "Saturday SIS vs effective schedule",
+                "Population",
+                new ArrayList<>(Arrays.asList("Time", "B1:CS1")),
+                new ArrayList<>(Arrays.asList(
+                        new ArrayList<>(Arrays.asList("SIS", "B7:CS7")),
+                        new ArrayList<>(Arrays.asList("Effective Schedule", "B22:CS22"))
+                )),
+                0, 50, 10, 60);
+        // Sunday
+        graphOccupancyProfile(workbook, "Sunday SIS vs effective schedule",
+                "Population",
+                new ArrayList<>(Arrays.asList("Time", "B1:CS1")),
+                new ArrayList<>(Arrays.asList(
+                        new ArrayList<>(Arrays.asList("SIS", "B8:CS8")),
+                        new ArrayList<>(Arrays.asList("Effective Schedule", "B23:CS23"))
+                )),
+                0, 60, 10, 70);
+
+        // ********************Graph A
+        // Monday
+        graphOccupancyProfile(workbook, "Monday occupancy sensor vs effective schedule",
+                "Population",
+                new ArrayList<>(Arrays.asList("Time", "B1:CS1")),
+                new ArrayList<>(Arrays.asList(
+                        new ArrayList<>(Arrays.asList("occupancy sensor", "B32:CS32")),
+                        new ArrayList<>(Arrays.asList("Effective Schedule", "B17:CS17"))
+                )),
+                10, 0, 20,  10);
+        // Tuesday
+        graphOccupancyProfile(workbook, "Tuesday occupancy sensor vs effective schedule",
+                "Population",
+                new ArrayList<>(Arrays.asList("Time", "B1:CS1")),
+                new ArrayList<>(Arrays.asList(
+                        new ArrayList<>(Arrays.asList("occupancy sensor", "B33:CS33")),
+                        new ArrayList<>(Arrays.asList("Effective Schedule", "B18:CS18"))
+                )),
+                10, 10, 20, 20);
+        // Wednesday
+        graphOccupancyProfile(workbook, "Wednesday occupancy sensor vs effective schedule",
+                "Population",
+                new ArrayList<>(Arrays.asList("Time", "B1:CS1")),
+                new ArrayList<>(Arrays.asList(
+                        new ArrayList<>(Arrays.asList("occupancy sensor", "B34:CS34")),
+                        new ArrayList<>(Arrays.asList("Effective Schedule", "B19:CS19"))
+                )),
+                10, 20, 20, 30);
+        // Thursday
+        graphOccupancyProfile(workbook, "Thursday occupancy sensor vs effective schedule",
+                "Population",
+                new ArrayList<>(Arrays.asList("Time", "B1:CS1")),
+                new ArrayList<>(Arrays.asList(
+                        new ArrayList<>(Arrays.asList("occupancy sensor", "B35:CS35")),
+                        new ArrayList<>(Arrays.asList("Effective Schedule", "B20:CS20"))
+                )),
+                10, 30, 20, 40);
+        // Friday
+        graphOccupancyProfile(workbook, "Friday occupancy sensor vs effective schedule",
+                "Population",
+                new ArrayList<>(Arrays.asList("Time", "B1:CS1")),
+                new ArrayList<>(Arrays.asList(
+                        new ArrayList<>(Arrays.asList("occupancy sensor", "B36:CS36")),
+                        new ArrayList<>(Arrays.asList("Effective Schedule", "B21:CS21"))
+                )),
+                10, 40, 20, 50);
+        // Saturday
+        graphOccupancyProfile(workbook, "Saturday occupancy sensor vs effective schedule",
+                "Population",
+                new ArrayList<>(Arrays.asList("Time", "B1:CS1")),
+                new ArrayList<>(Arrays.asList(
+                        new ArrayList<>(Arrays.asList("occupancy sensor", "B37:CS37")),
+                        new ArrayList<>(Arrays.asList("Effective Schedule", "B22:CS22"))
+                )),
+                10, 50, 20, 60);
+        // Sunday
+        graphOccupancyProfile(workbook, "Sunday occupancy sensor vs effective schedule",
+                "Population",
+                new ArrayList<>(Arrays.asList("Time", "B1:CS1")),
+                new ArrayList<>(Arrays.asList(
+                        new ArrayList<>(Arrays.asList("occupancy sensor", "B38:CS38")),
+                        new ArrayList<>(Arrays.asList("Effective Schedule", "B23:CS23"))
+                )),
+                10, 60, 20, 70);
+    }
+    private static void graphOccupancyProfiles(Workbook workbook){
+        // graphDayByDayOccupancyProfiles(workbook);
+        Worksheet worksheet = getWorksheetFromWorkbook(workbook,"OccupancyProfile");
+        Worksheet weeklyWorksheet = getWorksheetFromWorkbook(workbook, "ContinuousOccupancyProfile");
+        // readGraph(weeklyWorksheet);
+        graphWeekly(weeklyWorksheet, "OccupancyProfile",
+                "Population",
+                new ArrayList<>(Arrays.asList("Time", "B1:YW1")),
+                new ArrayList<>(Arrays.asList(
+                        new ArrayList<>(Arrays.asList("Occupancy Sensor", "B32:YW32")),
+                        new ArrayList<>(Arrays.asList("SIS Data", "B2:YW2")),
+                        new ArrayList<>(Arrays.asList("Effective Schedule", "B17:YW17"))
+                        )),
+                new ArrayList<>(Arrays.asList(
+                        ChartType.LINE,
+                        ChartType.LINE,
+                        ChartType.LINE
+                )),
+                new ArrayList<>(Arrays.asList(
+                        Color.getOrange(),
+                        Color.getBlue(),
+                        Color.getGray()
+                )),
+                new ArrayList<>(Arrays.asList("Occupancy Sensor State")),
+                new ArrayList<>(Arrays.asList(true, false, false)),
+                0, 0, 20, 20);
+    }
+
+    private static void readGraph(Worksheet worksheet){
+        Chart chart = worksheet.getCharts().get(0);
+    }
+
+    private static void graphOccupancyProfile(Workbook workbook,
+                                               String graphName,
+                                               String valueAxisName,
+                                               ArrayList<String> categoryValue,
+                                               ArrayList<ArrayList<String>> nSeriesValues,
+                                               int upperLeftRow, int upperLeftColumn,
+                                               int lowerRightRow, int lowerRightColumn){
+        try {
+            Worksheet worksheet = getWorksheetFromWorkbook(workbook,"OccupancyProfile");
+            int chartIndex = worksheet.getCharts().add(ChartType.LINE, upperLeftRow, upperLeftColumn, lowerRightRow, lowerRightColumn);
+            Chart chart = worksheet.getCharts().get(chartIndex);
+            chart.getTitle().setText(graphName);
+            chart.getValueAxis().getTitle().setText(valueAxisName);
+            chart.getCategoryAxis().getTitle().setText(categoryValue.get(chartArrayName));
+            chart.getCategoryAxis().getTickLabels().setNumberFormat("h:mm");
+            for (int i = 0; i < nSeriesValues.size(); i++){
+                ArrayList<String> currentNSeries = nSeriesValues.get(i);
+                chart.getNSeries().add(currentNSeries.get(chartArrayData), false);
+                chart.getNSeries().get(i).setName(currentNSeries.get(chartArrayName));
+            }
+            chart.getNSeries().setCategoryData(categoryValue.get(chartArrayData));
+        } catch (Exception e){
+            System.err.println("Errors in graphOccupancyProfiles " + e.getMessage());
+        }
+    }
+
+    private static void graphWeekly(Worksheet worksheet,
+                                      String graphName,
+                                      String valueAxisName,
+                                      ArrayList<String> categoryValue,
+                                      ArrayList<ArrayList<String>> nSeriesValues,
+                                      ArrayList<Integer> chartTypes,
+                                      ArrayList<Color> colorsList,
+                                      ArrayList<String> secondaryAxisValue,
+                                      ArrayList<Boolean> onSecondaryAxisList,
+                                      int upperLeftRow, int upperLeftColumn,
+                                      int lowerRightRow, int lowerRightColumn){
+        try {
+            int chartIndex = worksheet.getCharts().add(ChartType.LINE, upperLeftRow, upperLeftColumn, lowerRightRow, lowerRightColumn);
+            checkParrallelArrays(nSeriesValues, chartTypes, colorsList, onSecondaryAxisList);
+            Chart chart = worksheet.getCharts().get(chartIndex);
+            chart.getTitle().setText(graphName);
+            chart.getPlotArea().getArea().setBackgroundColor(Color.getWhite());
+            chart.getPlotArea().getArea().setForegroundColor(Color.getWhite());
+            chart.getValueAxis().getTitle().setText(valueAxisName);
+
+            chart.getCategoryAxis().getTitle().setText(categoryValue.get(chartArrayName));
+            for (int i = 0; i < nSeriesValues.size(); i++){
+                ArrayList<String> currentNSeries = nSeriesValues.get(i);
+                chart.getNSeries().add(currentNSeries.get(chartArrayData), false);
+                chart.getNSeries().get(i).setName(currentNSeries.get(chartArrayName));
+                chart.getNSeries().get(i).setType(chartTypes.get(i));
+                chart.getNSeries().get(i).getBorder().setColor(colorsList.get(i));
+            }
+            chart.getNSeries().setCategoryData(categoryValue.get(chartArrayData));
+
+            // Can only set Secondary axis after setting category axis data
+            for (int i = 0; i < nSeriesValues.size(); i++){
+                chart.getNSeries().get(i).setPlotOnSecondAxis(onSecondaryAxisList.get(i));
+            }
+
+            // Formatting Category Axis
+            chart.getCategoryAxis().setTickLabelSpacing(weeklyCategoryAxisTickLabelSpacing);
+            chart.getCategoryAxis().setTickMarkSpacing(weeklyCategoryAxisTickMarkSpacing);
+            chart.getCategoryAxis().getMajorGridLines().setVisible(false);
+            chart.getCategoryAxis().getTickLabels().setRotationAngle(weeklyCategoryAxisTickLabelTextRotation);
+
+            // Formatting Secondary ValueAxis
+            chart.getSecondValueAxis().setVisible(true);
+            chart.getSecondValueAxis().getTitle().setText(secondaryAxisValue.get(chartArrayName));
+
+            chart.getValueAxis().getMajorGridLines().setVisible(false);
+        } catch (Exception e){
+            System.err.println("Errors in graphOccupancyProfiles " + e.getMessage());
+        }
+    }
 }
