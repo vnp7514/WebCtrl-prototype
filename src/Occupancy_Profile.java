@@ -1,15 +1,11 @@
 import com.aspose.cells.*;
-import com.sun.source.tree.Tree;
 
 import java.time.DayOfWeek;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class Occupancy_Profile {
     private static DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm:ss a");
@@ -82,9 +78,9 @@ public class Occupancy_Profile {
         try{
             Workbook workbook = new Workbook(fileName);
 
-//            occupancyProfileForWebCtrlTrendData(workbook);
-//            occupancyProfileForSISData(workbook);
-//            occupancyProfileForWebCtrlReportData(workbook);
+            occupancyProfileForWebCtrlTrendData(workbook);
+            occupancyProfileForSISData(workbook);
+            occupancyProfileForWebCtrlReportData(workbook);
 
             graphOccupancyProfiles(workbook);
             workbook.save(fileName);
@@ -328,20 +324,6 @@ public class Occupancy_Profile {
         return result;
     }
 
-    /**
-     * Get the worksheet with the provided name. Create a new one if worksheet doesnt exist
-     * @param workbook
-     * @param name
-     * @return
-     */
-    private static Worksheet getWorksheetFromWorkbook(Workbook workbook, String name){
-        Worksheet worksheet = workbook.getWorksheets().get(name);
-        if (worksheet == null){
-            worksheet = workbook.getWorksheets().add(name);
-        }
-        return worksheet;
-    }
-
     private static void graphDayByDayOccupancyProfiles(Workbook workbook){
         // ********************Graph A
         // Monday
@@ -482,7 +464,7 @@ public class Occupancy_Profile {
                                                int upperLeftRow, int upperLeftColumn,
                                                int lowerRightRow, int lowerRightColumn){
         try {
-            Worksheet worksheet = getWorksheetFromWorkbook(workbook,"OccupancyProfile");
+            Worksheet worksheet = util.getWorksheetFromWorkbook(workbook,"OccupancyProfile");
             int chartIndex = worksheet.getCharts().add(ChartType.LINE, upperLeftRow, upperLeftColumn, lowerRightRow, lowerRightColumn);
             Chart chart = worksheet.getCharts().get(chartIndex);
             chart.getTitle().setText(graphName);
@@ -502,9 +484,9 @@ public class Occupancy_Profile {
 
     private static void graphOccupancyProfiles(Workbook workbook){
         // graphDayByDayOccupancyProfiles(workbook);
-        Worksheet worksheet = getWorksheetFromWorkbook(workbook,"OccupancyProfile");
-        Worksheet weeklyWorksheet = getWorksheetFromWorkbook(workbook, "ContinuousOccupancyProfile");
-        Worksheet hoursWorksheet = getWorksheetFromWorkbook(workbook, "hoursOccupancyProfile");
+        Worksheet worksheet = util.getWorksheetFromWorkbook(workbook,"OccupancyProfile");
+        Worksheet weeklyWorksheet = util.getWorksheetFromWorkbook(workbook, "ContinuousOccupancyProfile");
+        Worksheet hoursWorksheet = util.getWorksheetFromWorkbook(workbook, "hoursOccupancyProfile");
 
         // readGraph(weeklyWorksheet);
         graphWeekly(weeklyWorksheet, "OccupancyProfile",
@@ -649,8 +631,8 @@ public class Occupancy_Profile {
     private static void multiplyOccupiedStateByMaxOccupancyValue(TreeMap<Integer, TreeMap<LocalTime, Integer>> keyDayOfWeek_valueOccupancyTable, Workbook workbook) throws Exception {
         String roomName = "070-1650";
         String vavName = "338";
-        Worksheet sisDataWorksheet = getWorksheetFromWorkbook(workbook, "SIS data");
-        Worksheet roomInputDataWorksheet = getWorksheetFromWorkbook(workbook, "Room Input data0");
+        Worksheet sisDataWorksheet = util.getWorksheetFromWorkbook(workbook, "SIS data");
+        Worksheet roomInputDataWorksheet = util.getWorksheetFromWorkbook(workbook, "Room Input data0");
         ArrayList<Integer> totalEnrolledList = getIntegerfromExcel(sisDataWorksheet, "Tot Enrl", 0, 0);
         ArrayList<String> facilityIDList = getStringFromExcel(sisDataWorksheet, "Facil ID", 0, 0);
         ArrayList<Integer> uncertaintyList = getIntegerfromExcel(roomInputDataWorksheet, "Uncertainty", 11, 0);
@@ -672,11 +654,11 @@ public class Occupancy_Profile {
     private static void occupancyProfileForSISData(Workbook workbook) throws Exception {
         String roomName = "070-1650";
         String vavName = "338";
-        Worksheet worksheet = getWorksheetFromWorkbook(workbook,"SIS data");
-        Worksheet roomInputWorksheet = getWorksheetFromWorkbook(workbook, "Room Input data0");
-        Worksheet occupancyProfileWorksheet = getWorksheetFromWorkbook(workbook,"OccupancyProfile");
-        Worksheet continuousOccupancyProfileWorksheet = getWorksheetFromWorkbook(workbook, "ContinuousOccupancyProfile");
-        Worksheet hoursOccupancyProfileWorksheet = getWorksheetFromWorkbook(workbook, "hoursOccupancyProfile");
+        Worksheet worksheet = util.getWorksheetFromWorkbook(workbook,"SIS data");
+        Worksheet roomInputWorksheet = util.getWorksheetFromWorkbook(workbook, "Room Input data0");
+        Worksheet occupancyProfileWorksheet = util.getWorksheetFromWorkbook(workbook,"OccupancyProfile");
+        Worksheet continuousOccupancyProfileWorksheet = util.getWorksheetFromWorkbook(workbook, "ContinuousOccupancyProfile");
+        Worksheet hoursOccupancyProfileWorksheet = util.getWorksheetFromWorkbook(workbook, "hoursOccupancyProfile");
 
 
         ArrayList<LocalTime> reservedStartList = getLocalTimeFromExcel(worksheet, "Mtg Start");
@@ -711,11 +693,11 @@ public class Occupancy_Profile {
 
     private static void occupancyProfileForWebCtrlReportData(Workbook workbook) throws Exception {
         String vav = "70-VAV-338~";
-        Worksheet inputWorksheet = getWorksheetFromWorkbook(workbook,"WebCtrlReportInput");
-        Worksheet rawDataWorksheet = getWorksheetFromWorkbook(workbook,"ReportRawData");
-        Worksheet occupancyProfileWorksheet = getWorksheetFromWorkbook(workbook,"OccupancyProfile");
-        Worksheet continuousOccupancyProfileWorksheet = getWorksheetFromWorkbook(workbook, "ContinuousOccupancyProfile");
-        Worksheet hoursOccupancyProfileWorksheet = getWorksheetFromWorkbook(workbook, "hoursOccupancyProfile");
+        Worksheet inputWorksheet = util.getWorksheetFromWorkbook(workbook,"WebCtrlReportInput");
+        Worksheet rawDataWorksheet = util.getWorksheetFromWorkbook(workbook,"ReportRawData");
+        Worksheet occupancyProfileWorksheet = util.getWorksheetFromWorkbook(workbook,"OccupancyProfile");
+        Worksheet continuousOccupancyProfileWorksheet = util.getWorksheetFromWorkbook(workbook, "ContinuousOccupancyProfile");
+        Worksheet hoursOccupancyProfileWorksheet = util.getWorksheetFromWorkbook(workbook, "hoursOccupancyProfile");
         List<String[]> report = util.pullReportsFromWebCtrl(inputWorksheet, "Effective Schedule");
         util.saveReportToExcel(rawDataWorksheet, report);
         TreeMap<Integer, TreeMap<LocalTime, Integer>> keyDayOfWeek_valueOccupancyTable = createOccupancyTableMappingsFromReport(report, vav);
@@ -730,11 +712,11 @@ public class Occupancy_Profile {
     private static void occupancyProfileForWebCtrlTrendData(Workbook workbook) throws Exception {
 
 
-        Worksheet inputWorksheet = getWorksheetFromWorkbook(workbook,"WebCtrl Input");
-        Worksheet rawDataWorksheet = getWorksheetFromWorkbook(workbook,"Trend Data");
-        Worksheet occupancyProfileWorksheet = getWorksheetFromWorkbook(workbook,"OccupancyProfile");
-        Worksheet continuousOccupancyProfileWorksheet = getWorksheetFromWorkbook(workbook, "ContinuousOccupancyProfile");
-        Worksheet hoursOccupancyProfileWorksheet = getWorksheetFromWorkbook(workbook, "hoursOccupancyProfile");
+        Worksheet inputWorksheet = util.getWorksheetFromWorkbook(workbook,"WebCtrl Input");
+        Worksheet rawDataWorksheet = util.getWorksheetFromWorkbook(workbook,"Trend Data");
+        Worksheet occupancyProfileWorksheet = util.getWorksheetFromWorkbook(workbook,"OccupancyProfile");
+        Worksheet continuousOccupancyProfileWorksheet = util.getWorksheetFromWorkbook(workbook, "ContinuousOccupancyProfile");
+        Worksheet hoursOccupancyProfileWorksheet = util.getWorksheetFromWorkbook(workbook, "hoursOccupancyProfile");
 
         String[] results = util.pullDataFromWebCtrl(inputWorksheet, "Occupancy Contact State");
         util.saveRawDataToExcel("Occupancy Contact State", rawDataWorksheet, 0, 0, results);

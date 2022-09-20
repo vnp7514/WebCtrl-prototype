@@ -82,13 +82,12 @@ public class APICALL {
         return null;
     }
 
-    public static void saveToExcel(String fileName){
+    public static void saveToExcel(Workbook workbook){
         try{
-            Workbook workbook = new Workbook(fileName);
 
             // Obtain the input for the retrieval process
             ////////////////////////////START
-            Worksheet inputs = workbook.getWorksheets().get("Input for Degree Days");
+            Worksheet inputs = util.getWorksheetFromWorkbook(workbook, "Input for Degree Days");
             Cells inputCells = inputs.getCells();
             String station = inputCells.get(1, 0).getStringValue();
             String startDate = inputCells.get(1,1).getStringValue();
@@ -97,7 +96,7 @@ public class APICALL {
             /////////////////////////////END
 
 
-            Worksheet worksheet = workbook.getWorksheets().add("Degree Days");
+            Worksheet worksheet = util.getWorksheetFromWorkbook(workbook,"Degree Days");
             Cells cells = worksheet.getCells();
             cells.get(0,0).setValue("Date");
             cells.get(0,1).setValue("Average Temperature (\u00B0F)");
@@ -121,7 +120,7 @@ public class APICALL {
                 row++;
             }
 
-            Worksheet worksheet1 = workbook.getWorksheets().add("Month Degree Days");
+            Worksheet worksheet1 = util.getWorksheetFromWorkbook(workbook,"Month Degree Days");
             Cells cells1 = worksheet1.getCells();
             cells1.get(0,0).setValue("Month");
             cells1.get(0,1).setValue("Month HDD (\u00B0F.day/month)");
@@ -132,13 +131,12 @@ public class APICALL {
                 cells1.get(i,1).setValue(monthHDD[i-1]);
                 cells1.get(i,2).setValue(monthCDD[i-1]);
             }
-            workbook.save(fileName);
         } catch (Exception e){
             System.err.println("Error in save to Excel "+ e.getMessage());
         }
     }
 
     public static void main(String args[]){
-        saveToExcel(System.getProperty("user.dir") + "/src/TEST.xlsx");
+
     }
 }

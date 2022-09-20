@@ -35,13 +35,12 @@ public class line_chart {
     /**
      * Obtain the key-value pair where key is the month value (int) of the year and
      * value is a list of 2 values: [CDD, Cooling energy]
-     * @param fileName the excel file where the data are stored
+     * @param workbook the excel file where the data are stored
      * @return a hashmap of key-value pairs described above
      */
-    public static HashMap<Integer, ArrayList<Double>> getMonthCDDCoolingEnergy(String fileName){
+    public static HashMap<Integer, ArrayList<Double>> getMonthCDDCoolingEnergy(Workbook workbook){
         try{
-            Workbook workbook = new Workbook(fileName);
-            Worksheet worksheet = workbook.getWorksheets().get("Month Degree Days");
+            Worksheet worksheet = util.getWorksheetFromWorkbook(workbook,"Month Degree Days");
             Cells cells = worksheet.getCells();
             HashMap<Integer, ArrayList<Double>> keyMonth_ValueCDDCooling = new HashMap<>();
             for (int i = 1; i <= 12; i++){
@@ -61,13 +60,12 @@ public class line_chart {
     /**
      * Obtain the key-value pair where key is the month value (int) of the year and
      * value is a list of 2 values: [HDD, Heating energy]
-     * @param fileName the excel file where the data are stored
+     * @param workbook the excel file where the data are stored
      * @return a hashmap of key-value pairs described above
      */
-    public static HashMap<Integer, ArrayList<Double>> getMonthHDDHeatingEnergy(String fileName){
+    public static HashMap<Integer, ArrayList<Double>> getMonthHDDHeatingEnergy(Workbook workbook){
         try{
-            Workbook workbook = new Workbook(fileName);
-            Worksheet worksheet = workbook.getWorksheets().get("Month Degree Days");
+            Worksheet worksheet = util.getWorksheetFromWorkbook(workbook, "Month Degree Days");
             Cells cells = worksheet.getCells();
             HashMap<Integer, ArrayList<Double>> keyMonth_ValueHDDHeating = new HashMap<>();
             for (int i = 1; i <= 12; i++){
@@ -84,11 +82,10 @@ public class line_chart {
         return null;
     }
 
-    public static HashMap<String, ArrayList<Double>> graphBaseLine(String fileName) {
+    public static HashMap<String, ArrayList<Double>> graphBaseLine(Workbook workbook) {
         try {
             HashMap<String, ArrayList<Double>> slopeIntercepts = new HashMap<>();
-            Workbook workbook = new Workbook(fileName);
-            Worksheet worksheet = workbook.getWorksheets().get("Month Degree Days");
+            Worksheet worksheet = util.getWorksheetFromWorkbook(workbook, "Month Degree Days");
             int chartIndex = worksheet.getCharts().add(ChartType.SCATTER, 10, 10, 20, 20);
             Chart chart = worksheet.getCharts().get(chartIndex);
             chart.getTitle().setText("CDD vs Cooling Energy");
@@ -136,7 +133,6 @@ public class line_chart {
 
 
             //Saving the Excel file
-            workbook.save(fileName);
             return slopeIntercepts;
         } catch (Exception e) {
             System.err.println(e.getMessage());
@@ -146,16 +142,22 @@ public class line_chart {
 
     public static void main(String[] args) {
         String filename = System.getProperty("user.dir") + "/src/TEST.xlsx";
-        graphBaselinePerDay(filename);
+        try {
+            Workbook workbook = new Workbook(filename);
+            graphBaselinePerDay(workbook);
+            workbook.save(filename);
+        } catch (Exception e){
+
+        }
     }
 
     /**
      * Make both the cooling energy sheet and the heating energy sheet
-     * @param fileName the excel file where both sheets will be stored as well as where the data are
+     * @param workbook the excel file where both sheets will be stored as well as where the data are
      * @param slopeIntercepts the slope and intercepts of both trendLines
      *                        (CDD vs cooling energy, and HDD vs heating energy)
      */
-    public static void makeBaseLineSheet(String fileName, HashMap<String, ArrayList<Double>> slopeIntercepts){
+    public static void makeBaseLineSheet(Workbook workbook, HashMap<String, ArrayList<Double>> slopeIntercepts){
         try{
             ArrayList<Double> cooling = slopeIntercepts.get("Cooling");
             System.out.println("Cooling slope: "+ cooling.get(0));
@@ -163,8 +165,8 @@ public class line_chart {
             ArrayList<Double> heating = slopeIntercepts.get("Heating");
             System.out.println("Heating slope: "+ heating.get(0));
             System.out.println("Heating intercept: "+ heating.get(1));
-            makeCoolingBaseLineSheet(fileName, cooling.get(1), cooling.get(0));
-            makeHeatingBaseLineSheet(fileName, heating.get(1), heating.get(0));
+            makeCoolingBaseLineSheet(workbook, cooling.get(1), cooling.get(0));
+            makeHeatingBaseLineSheet(workbook, heating.get(1), heating.get(0));
 
 
         } catch (Exception e) {
@@ -172,10 +174,9 @@ public class line_chart {
         }
     }
 
-    public static void graphBaselinePerDay(String fileName){
+    public static void graphBaselinePerDay(Workbook workbook){
         try{
-            Workbook workbook = new Workbook(fileName);
-            Worksheet worksheet = workbook.getWorksheets().get("Degree Days");
+            Worksheet worksheet = util.getWorksheetFromWorkbook(workbook,"Degree Days");
             Cells cells = worksheet.getCells();
             int chartIndex = worksheet.getCharts().add(ChartType.SCATTER, 10, 10, 20, 20);
             Chart chart = worksheet.getCharts().get(chartIndex);
@@ -217,7 +218,6 @@ public class line_chart {
             //Displaying the R-Squared value on chart
             trendline2.setDisplayRSquared(true);
 
-            workbook.save(fileName);
         } catch (Exception e){
             System.err.println("error in graphBaseLinePerDay" + e.getMessage());
         }
@@ -225,15 +225,13 @@ public class line_chart {
 
     /**
      * Make the cooling energy sheet
-     * @param fileName the excel file where the data are stored
+     * @param workbook the excel file where the data are stored
      * @param intercept the intercept of the trendline from CDD vs cooling energy chart
      * @param slope the slope of the trendline
      */
-    public static void makeCoolingBaseLineSheet(String fileName, Double intercept, Double slope){
+    public static void makeCoolingBaseLineSheet(Workbook workbook, Double intercept, Double slope){
         try{
-            Workbook workbook = new Workbook(fileName);
-
-            Worksheet worksheet = workbook.getWorksheets().add("Cooling BaseLine Info");
+            Worksheet worksheet = util.getWorksheetFromWorkbook(workbook,"Cooling BaseLine Info");
             Cells cells = worksheet.getCells();
 
             cells.get(0,0).setValue("Month");
@@ -241,7 +239,7 @@ public class line_chart {
             cells.get(0,2).setValue("Intercept");
             cells.get(0,3).setValue("Slope");
             cells.get(0, 4).setValue("Actual Consumption (thousand Btu)");
-            HashMap<Integer, ArrayList<Double>> keyMonth_ValueCDDCooling = getMonthCDDCoolingEnergy(fileName);
+            HashMap<Integer, ArrayList<Double>> keyMonth_ValueCDDCooling = getMonthCDDCoolingEnergy(workbook);
             for (Integer key: keyMonth_ValueCDDCooling.keySet()){
                 Double CDD = keyMonth_ValueCDDCooling.get(key).get(0);
                 Double cooling = keyMonth_ValueCDDCooling.get(key).get(1);
@@ -251,7 +249,6 @@ public class line_chart {
                 cells.get(key, 3).setValue(slope);
                 cells.get(key, 4).setValue(cooling);
             }
-            workbook.save(fileName);
 
         } catch (Exception e) {
             System.err.println("makeCoolingBaseLineSheet error" + e.getMessage());
@@ -260,15 +257,13 @@ public class line_chart {
 
     /**
      * Make the heating energy sheet
-     * @param fileName the excel file where the data are stored
+     * @param workbook the excel file where the data are stored
      * @param intercept the intercept of the trendline from HDD vs heating energy chart
      * @param slope the slope of the trendline
      */
-    public static void makeHeatingBaseLineSheet(String fileName, Double intercept, Double slope){
+    public static void makeHeatingBaseLineSheet(Workbook workbook, Double intercept, Double slope){
         try{
-            Workbook workbook = new Workbook(fileName);
-
-            Worksheet worksheet = workbook.getWorksheets().add("Heating BaseLine Info");
+            Worksheet worksheet = util.getWorksheetFromWorkbook(workbook,"Heating BaseLine Info");
             Cells cells = worksheet.getCells();
 
             cells.get(0,0).setValue("Month");
@@ -276,7 +271,7 @@ public class line_chart {
             cells.get(0,2).setValue("Intercept");
             cells.get(0,3).setValue("Slope");
             cells.get(0, 4).setValue("Actual Consumption (thousand Btu)");
-            HashMap<Integer, ArrayList<Double>> keyMonth_ValueHDDHeating = getMonthHDDHeatingEnergy(fileName);
+            HashMap<Integer, ArrayList<Double>> keyMonth_ValueHDDHeating = getMonthHDDHeatingEnergy(workbook);
             for (Integer key: keyMonth_ValueHDDHeating.keySet()){
                 Double HDD = keyMonth_ValueHDDHeating.get(key).get(0);
                 Double heating = keyMonth_ValueHDDHeating.get(key).get(1);
@@ -286,7 +281,6 @@ public class line_chart {
                 cells.get(key, 3).setValue(slope);
                 cells.get(key, 4).setValue(heating);
             }
-            workbook.save(fileName);
 
         } catch (Exception e) {
             System.err.println("makeHeatingBaseLineSheet error" + e.getMessage());

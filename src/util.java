@@ -36,14 +36,34 @@ public class util {
     private static final int limitFromStartCol = 4;
     private static final int maxRecordsCol = 5;
     private static final int reportNameCol = 2;
+    private static final String ECONOMIZER = "Economizer";
+    private static final String MAT = "070_ahu_03_ma_temp (℉)";
+    private static final String SAT = "070_ahu_03_sa_temp (℉)";
+    private static final String SACFM = "070_ahu_03_sa_air_flow (cfm)";
+    private static final String OAT = "oa_temp  (℉)";
+    private static final String PREHEAT = "Preheat Discharge Temp (℉)";
+
+    /**
+     * Get the worksheet with the provided name. Create a new one if worksheet doesnt exist
+     * @param workbook
+     * @param name
+     * @return
+     */
+    public static Worksheet getWorksheetFromWorkbook(Workbook workbook, String name){
+        Worksheet worksheet = workbook.getWorksheets().get(name);
+        if (worksheet == null){
+            worksheet = workbook.getWorksheets().add(name);
+        }
+        return worksheet;
+    }
 
     /**
      * Make the graph for day
-     * @param location the file to save the graph
+     * @param workbook the file to save the graph
      * @param names the names all the values for the day
      * @param sorted the sorted map where key is day and value is a list of values for that day
      */
-    public static void makeDaySheet(String location, ArrayList<String> names, LinkedHashMap<String, ArrayList<String>> sorted){
+    public static void makeDaySheet(Workbook workbook, ArrayList<String> names, LinkedHashMap<String, ArrayList<String>> sorted){
         try{
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm:ss a");
             // Example: key value pair for Monday
@@ -117,8 +137,7 @@ public class util {
                 }
             }
 
-            Workbook workbook = new Workbook(location);
-            Worksheet worksheet = workbook.getWorksheets().add("Day Graph");
+            Worksheet worksheet = getWorksheetFromWorkbook(workbook, "Day Graph");
             Cells cells = worksheet.getCells();
 
             int col = 0;
@@ -185,7 +204,6 @@ public class util {
             }
             row = initialRow;
 
-            workbook.save(location);
         } catch (Exception e){
             System.err.println("Error in makeDaySheet " + e.getMessage());
         }
@@ -361,11 +379,11 @@ public class util {
 
     /**
      * Get the inputs for getting trend data from Excel
-     * @param location the excel file where the inputs are
+     * @param workbook the excel file where the inputs are
      * @return [names, paths, startTimes, endTimes, limitFromStarts, maxRecordss] is a list.
      * where each element is a list of things with said name.
      */
-    public static ArrayList<ArrayList<String>> getTrendInputsFromExcel(String location){
+    public static ArrayList<ArrayList<String>> getTrendInputsFromExcel(Workbook workbook){
         ArrayList<String> names = new ArrayList<>();
         ArrayList<String> paths = new ArrayList<>();
         ArrayList<String> startTimes = new ArrayList<>();
@@ -373,8 +391,7 @@ public class util {
         ArrayList<String> limitFromStarts = new ArrayList<>();
         ArrayList<String> maxRecordss = new ArrayList<>();
         try{
-            Workbook workbook = new Workbook(location);
-            Worksheet worksheet = workbook.getWorksheets().get("Trend");
+            Worksheet worksheet = getWorksheetFromWorkbook(workbook,"Trend");
             Cells cells = worksheet.getCells();
             int maxRow = cells.getLastDataRow(0);
             for (int i = 1; i <= maxRow; i++){
@@ -399,9 +416,9 @@ public class util {
         return null;
     }
 
-    public static void baseLineTask(String location){
+    public static void baseLineTask(Workbook workbook){
         try{
-            ArrayList<ArrayList<String>> parameters = getTrendInputsFromExcel(location);
+            ArrayList<ArrayList<String>> parameters = getTrendInputsFromExcel(workbook);
             LinkedHashMap<String, ArrayList<String>> sorted = new LinkedHashMap<>();
             ArrayList<String[]> data = new ArrayList<>();
 
@@ -433,24 +450,24 @@ public class util {
             }
 
             ///// START OF TREND VALUES
-            makeTrendValuesSheet(location, parameters.get(0), data);
+            makeTrendValuesSheet(workbook, parameters.get(0), data);
             ////// END OF TREND VALUES
 
             ///// START OF TREND VALUES SORTED
-            makeTrendValuesSortedSheet(location, parameters.get(0), sorted);
+            makeTrendValuesSortedSheet(workbook, parameters.get(0), sorted);
             ///// END OF TREND VALUES SORTED
 
-            LinkedHashMap<String, ArrayList<Double>> result1 = calculateEnergy(location, parameters.get(0), sorted);
-            makeDaySheet(location, parameters.get(0), sorted);
-            makeMonthEnergySheet(location, result1);
-            makeDayEnergySheet(location, result1);
+            LinkedHashMap<String, ArrayList<Double>> result1 = calculateEnergy(workbook, parameters.get(0), sorted);
+            makeDaySheet(workbook, parameters.get(0), sorted);
+            makeMonthEnergySheet(workbook, result1);
+            makeDayEnergySheet(workbook, result1);
 
         } catch (Exception e){
             System.err.println("baseLineTask error "+e.getMessage());
         }
     }
 
-    private static void makeMonthEnergySheet(String fileName,LinkedHashMap<String, ArrayList<Double>> energy ){
+    private static void makeMonthEnergySheet(Workbook workbook,LinkedHashMap<String, ArrayList<Double>> energy ){
         int HDDCol = 1;
         int CDDCol = 2;
         int CoolCol = 4;
@@ -476,7 +493,6 @@ public class util {
             heating.put(currentMonth, heating.get(currentMonth) + heatingEnergy);
         }
         try {
-            Workbook workbook = new Workbook(fileName);
             Worksheet worksheet = workbook.getWorksheets().get("Month Degree Days");
             Cells cells = worksheet.getCells();
             cells.get(0, CoolCol).setValue("Month Cooling energy (thousand Btu)");
@@ -487,7 +503,6 @@ public class util {
             for (Integer i : heating.keySet()) {
                 cells.get(i,HeatCol).setValue(heating.get(i));
             }
-            workbook.save(fileName);
         } catch (Exception e) {
             System.err.println("makeMonthEnergySheet error "+ e.getMessage());
         }
@@ -495,12 +510,12 @@ public class util {
 
     /**
      *
-     * @param location
+     * @param workbook the excel sheet where values will be saved to
      * @param names
      * @param sorted
      * @return key is date. value is a list of [cooling energy (MBtu), qheating (MBtu)]
      */
-    private static LinkedHashMap<String, ArrayList<Double>> calculateEnergy(String location, ArrayList<String> names, LinkedHashMap<String, ArrayList<String>> sorted){
+    private static LinkedHashMap<String, ArrayList<Double>> calculateEnergy(Workbook workbook, ArrayList<String> names, LinkedHashMap<String, ArrayList<String>> sorted){
         try{
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm:ss a");
             int econ = 0;
@@ -511,17 +526,17 @@ public class util {
             int preheat = 0;
             for (int i = 0; i < names.size(); i++){
                 String name = names.get(i);
-                if (name.equalsIgnoreCase("Economizer")){
+                if (name.equalsIgnoreCase(ECONOMIZER)){
                     econ = i;
-                } else if (name.equalsIgnoreCase("MAT (℉)")){
+                } else if (name.equalsIgnoreCase(MAT)){
                     mat = i;
-                } else if (name.equalsIgnoreCase("SAT (℉)")){
+                } else if (name.equalsIgnoreCase(SAT)){
                     sat = i;
-                } else if (name.equalsIgnoreCase("SACFM")){
+                } else if (name.equalsIgnoreCase(SACFM)){
                     sacfm = i;
-                } else if (name.equalsIgnoreCase("OAT (℉)")){
+                } else if (name.equalsIgnoreCase(OAT)){
                     oat = i;
-                } else if (name.equalsIgnoreCase("Preheat Discharge Temp (℉)")){
+                } else if (name.equalsIgnoreCase(PREHEAT)){
                     preheat = i;
                 }
             }
@@ -532,8 +547,7 @@ public class util {
                 throw new Exception("not enough arguments");
             }
 
-            Workbook workbook = new Workbook(location);
-            Worksheet worksheet = workbook.getWorksheets().add("Energy");
+            Worksheet worksheet = getWorksheetFromWorkbook(workbook,"Energy");
             Cells cells = worksheet.getCells();
             // Column index
             int col = 0;
@@ -684,7 +698,6 @@ public class util {
                 row++;
             }
 
-            workbook.save(location);
             return energy;
 
         } catch (Exception e){
@@ -693,10 +706,9 @@ public class util {
         return null;
     }
 
-    public static void makeTrendValuesSheet(String fileName, ArrayList<String> names, ArrayList<String[]> data){
+    public static void makeTrendValuesSheet(Workbook workbook, ArrayList<String> names, ArrayList<String[]> data){
         try {
-            Workbook workbook = new Workbook(fileName);
-            Worksheet worksheet = workbook.getWorksheets().add("Trend Values");
+            Worksheet worksheet = getWorksheetFromWorkbook(workbook,"Trend Values");
             Cells cells = worksheet.getCells();
             int z = 0;
             for (String name : names){
@@ -718,16 +730,14 @@ public class util {
                 colIdx+=2;
                 rowIdx = 1;
             }
-            workbook.save(fileName);
         } catch (Exception e){
             System.err.println("makeTrendValuesSheet " + e.getMessage());
         }
     }
 
-    public static void makeTrendValuesSortedSheet(String fileName, ArrayList<String> names, LinkedHashMap<String, ArrayList<String>> sorted ){
+    public static void makeTrendValuesSortedSheet(Workbook workbook, ArrayList<String> names, LinkedHashMap<String, ArrayList<String>> sorted ){
         try {
-            Workbook workbook = new Workbook(fileName);
-            Worksheet worksheet = workbook.getWorksheets().add("Trend Values Sorted");
+            Worksheet worksheet = getWorksheetFromWorkbook(workbook,"Trend Values Sorted");
             Cells cells = worksheet.getCells();
 
             int z = 0;
@@ -749,7 +759,6 @@ public class util {
                 i++;
             }
 
-            workbook.save(fileName);
         } catch (Exception e){
             System.err.println("makeTrendValuesSheet " + e.getMessage());
         }
@@ -788,7 +797,7 @@ public class util {
         return null;
     }
 
-    public static void makeDayEnergySheet(String filename, LinkedHashMap<String, ArrayList<Double>> energy){
+    public static void makeDayEnergySheet(Workbook workbook, LinkedHashMap<String, ArrayList<Double>> energy){
         TreeMap<Integer, Double> keyDayOfYear_valueCoolingEnergy = new TreeMap<>();
         TreeMap<Integer, Double> keyDayOfYear_valueHeatingEnergy = new TreeMap<>();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm:ss a");
@@ -814,8 +823,7 @@ public class util {
             int CoolingCol= 5;
             int HeatingCol = 4;
 
-            Workbook workbook = new Workbook(filename);
-            Worksheet worksheet = workbook.getWorksheets().get("Degree Days");
+            Worksheet worksheet = getWorksheetFromWorkbook(workbook,"Degree Days");
             Cells cells = worksheet.getCells();
             cells.get(0, CoolingCol).setValue("Cooling Energy (thousand Btu)");
             cells.get(0,HeatingCol).setValue("Heating Energy (thousand Btu)");
@@ -826,7 +834,6 @@ public class util {
                 cells.get(i, CoolingCol).setValue(keyDayOfYear_valueCoolingEnergy.get(dayOfYear));
                 cells.get(i, HeatingCol).setValue(keyDayOfYear_valueHeatingEnergy.get(dayOfYear));
             }
-            workbook.save(filename);
         } catch (Exception e) {
             System.err.println("Error in makeDayEnergySheet " + e.getMessage());
         }
