@@ -14,9 +14,9 @@ public class Occupancy_Profile {
     private static DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm:ss a");
     private static int vavNameColInReport = 1;
     private static int vavOccupancyStateInReport = 2;
-    private static int occupancyProfileReport = 15;
-    private static int occupancyProfileTrend = 30;
-    private static int occupancyProfileSIS = 0;
+    public static int occupancyProfileReport = 15;
+    public static int occupancyProfileTrend = 30;
+    public static int occupancyProfileSIS = 0;
     private static int chartArrayName = 0;
     private static int chartArrayData = 1;
     private static int weeklyCategoryAxisTickLabelSpacing = 24;
@@ -1026,5 +1026,21 @@ public class Occupancy_Profile {
             }
             col=intialCol;
         }
+    }
+
+    public static TreeMap<Integer, TreeMap<LocalTime, Integer>> getOccupancyTablesMappingsFromExcel(Worksheet worksheet, int srow, int scol){
+        TreeMap<Integer, TreeMap<LocalTime, Integer>> result = new TreeMap<>();
+        Cells cells = worksheet.getCells();
+        for (int i = 1; i <= 7; i++){
+            TreeMap<LocalTime, Integer> timeIntegerTreeMap = new TreeMap<>();
+            result.put(i, timeIntegerTreeMap);
+
+            for (int a = 1; a <= cells.getMaxDataColumn(); a++){
+                LocalTime currentTime = LocalTime.parse(cells.get(srow, scol+a).getStringValue());
+                Integer occupancyValue = cells.get(srow+i, scol+a).getIntValue();
+                timeIntegerTreeMap.put(currentTime, occupancyValue);
+            }
+        }
+        return result;
     }
 }

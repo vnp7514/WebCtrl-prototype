@@ -18,10 +18,7 @@ import org.apache.poi.xssf.usermodel.*;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.StringReader;
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.Month;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -42,6 +39,20 @@ public class util {
     private static final String SACFM = "070_ahu_03_sa_air_flow (cfm)";
     private static final String OAT = "oa_temp  (℉)";
     private static final String PREHEAT = "Preheat Discharge Temp (℉)";
+    private static final int dateEnergyCol = 0;
+    private static final int EconomizerEnergyCol = 1;
+    private static final int OATEnergyCol = 2;
+    private static final int MATEnergyCol = 3;
+    private static final int SATEnergyCol = 4;
+    private static final int PreheatEnergyCol = 5;
+    private static final int QCoolingEnergyCol = 6;
+    private static final int QHeatingEnergyCol = 7;
+    private static final int CoolingEnergyCol = 8;
+    private static final int HeatingEnergyCol = 9;
+    public static final int SISOccupancyEnergyCol = 10;
+    public static final int TrendOccupancyEnergyCol = 11;
+    public static final int ReportOccupancyEnergyCol = 12;
+    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm:ss a");
 
     /**
      * Get the worksheet with the provided name. Create a new one if worksheet doesnt exist
@@ -58,6 +69,7 @@ public class util {
     }
 
     /**
+     * TODO: Ignore for now
      * Make the graph for day
      * @param workbook the file to save the graph
      * @param names the names all the values for the day
@@ -458,7 +470,8 @@ public class util {
             ///// END OF TREND VALUES SORTED
 
             LinkedHashMap<String, ArrayList<Double>> result1 = calculateEnergy(workbook, parameters.get(0), sorted);
-            makeDaySheet(workbook, parameters.get(0), sorted);
+            // TODO: Ignore for now
+            // makeDaySheet(workbook, parameters.get(0), sorted);
             makeMonthEnergySheet(workbook, result1);
             makeDayEnergySheet(workbook, result1);
 
@@ -547,32 +560,28 @@ public class util {
                 throw new Exception("not enough arguments");
             }
 
+
             Worksheet worksheet = getWorksheetFromWorkbook(workbook,"Energy");
             Cells cells = worksheet.getCells();
             // Column index
             int col = 0;
             // Row index
             int row = 0;
-            cells.get(row, 0).setValue("Date");
-            cells.get(row, 4).setValue("Q (Btu/min)");
-            cells.get(row, 5).setValue("Clg/Htg Energy Btu");
-            cells.get(row, 6).setValue("Clg Energy (thousand Btu)");
-            cells.get(row, 7).setValue("Htg Energy (thousand Btu)");
-            cells.get(row, 8).setValue("Economizer");
-            cells.get(row, 1).setValue("OAT");
-            cells.get(row, 2).setValue("MAT");
-            cells.get(row, 3).setValue("SAT");
-            cells.get(row, 9).setValue("QCooling (Btu/min)");
-            cells.get(row, 10).setValue("QHeating (Btu/min)");
-            cells.get(row, 11).setValue("Preheat");
-            cells.get(row, 12).setValue("Clg Energy from QCooling (thousand Btu)");
-            cells.get(row, 13).setValue("Htg Energy from QHeating (thousand Btu)");
+            cells.get(row, dateEnergyCol).setValue("Date");
+            cells.get(row, EconomizerEnergyCol).setValue("Economizer");
+            cells.get(row, OATEnergyCol).setValue("OAT");
+            cells.get(row, MATEnergyCol).setValue("MAT");
+            cells.get(row, SATEnergyCol).setValue("SAT");
+            cells.get(row, PreheatEnergyCol).setValue("Preheat");
+            cells.get(row, QCoolingEnergyCol).setValue("QCooling (Btu/min)");
+            cells.get(row, QHeatingEnergyCol).setValue("QHeating (Btu/min)");
+            cells.get(row, CoolingEnergyCol).setValue("Clg Energy from QCooling (thousand Btu)");
+            cells.get(row, HeatingEnergyCol).setValue("Htg Energy from QHeating (thousand Btu)");
 
             LinkedHashMap<String, ArrayList<Double>> energy = new LinkedHashMap<>();
             row++;
             int initialRow = row;
             // Getting Q values
-            LinkedHashMap<String, Double> qValues = new LinkedHashMap<>();
             LinkedHashMap<String, Double> qCoolingValues = new LinkedHashMap<>();
 
             LinkedHashMap<String, Double> qHeatingValues = new LinkedHashMap<>();
@@ -584,27 +593,17 @@ public class util {
                         !sorted.get(date).get(sacfm).equalsIgnoreCase("") &&
                         !sorted.get(date).get(preheat).equalsIgnoreCase("")) {
                     ArrayList<String> values = sorted.get(date);
-                    qValues.put(date, 0.01791 * Double.parseDouble(values.get(sacfm)) *
-                            (Double.parseDouble(values.get(preheat)) - Double.parseDouble(values.get(mat))));
                     qCoolingValues.put(date, 0.01791 * Double.parseDouble(values.get(sacfm)) *
                             (Double.parseDouble(values.get(sat)) - Double.parseDouble(values.get(preheat))));
                     qHeatingValues.put(date, 0.01791 * Double.parseDouble(values.get(sacfm)) *
                             (Double.parseDouble(values.get(preheat)) - Double.parseDouble(values.get(mat))));
-
                 }
             }
 
-            //Writing it to excel
-            for (String date: qValues.keySet()){
-                cells.get(row, 0).setValue(date);
-                cells.get(row, 4).setValue(qValues.get(date));
-                row++;
-            }
-
-            // Getting Clg/htg Energy Btu
+            // Getting time interval
             int count = 0;
             Double interval = 0.0;
-            for (String date: qValues.keySet()){
+            for (String date: qCoolingValues.keySet()){
                 if (count == 0){
                     LocalDateTime currentDate = LocalDateTime.parse(date, formatter);
                     interval = (double) currentDate.getMinute();
@@ -616,85 +615,23 @@ public class util {
                 }
                 count++;
             }
+            // Finish getting time interval
 
             //Writing it to excel
-            row = initialRow;
-            for (String date: qValues.keySet()){
-                cells.get(row, 5).setValue(qValues.get(date) * interval);
-                energy.put(date, new ArrayList<>(Arrays.asList(0.0, 0.0)));
-                row++;
-            }
-
-            row = initialRow;
-            for (String date: qValues.keySet()){
-                cells.get(row, 11).setValue(sorted.get(date).get(preheat));
-                row++;
-            }
-
-            row = initialRow;
-            for (String date: qValues.keySet()){
-                // && sorted.get(date).get(econ).equalsIgnoreCase("0")
-                if (qValues.get(date) < 0 ){
-                    cells.get(row,6).setValue(qValues.get(date) * interval / 1000);
-                    energy.get(date).add(0, qValues.get(date) * interval / 1000);
-                }
-                row++;
-            }
-
-            row = initialRow;
-            for (String date: qValues.keySet()){
-                //&& sorted.get(date).get(econ).equalsIgnoreCase("0")
-                if (qValues.get(date) > 0 ){
-                    cells.get(row,7).setValue(qValues.get(date) * interval / 1000);
-                    energy.get(date).add(1, qValues.get(date) * interval / 1000);
-                }
-                row++;
-            }
-
-            row = initialRow;
-            for (String date: qValues.keySet()){
-                cells.get(row,1).setValue(sorted.get(date).get(oat));
-                row++;
-            }
-
-            row = initialRow;
-            for (String date: qValues.keySet()){
-                cells.get(row, 8).setValue(sorted.get(date).get(econ));
-                row++;
-            }
-
-            row = initialRow;
-            for (String date: qValues.keySet()){
-                cells.get(row,9).setValue(qCoolingValues.get(date)*interval);
-                row++;
-            }
-
-            row = initialRow;
-            for (String date: qValues.keySet()){
-                cells.get(row,10).setValue(qHeatingValues.get(date)*interval);
-                row++;
-            }
-
-            row = initialRow;
-            for (String date: qValues.keySet()){
-                cells.get(row,2).setValue(sorted.get(date).get(mat));
-                row++;
-            }
-            row = initialRow;
-            for (String date: qValues.keySet()){
-                cells.get(row,3).setValue(sorted.get(date).get(sat));
-                row++;
-            }
-
-            row = initialRow;
             for (String date: qCoolingValues.keySet()){
-                cells.get(row,12).setValue(qCoolingValues.get(date)*interval/1000);
-                row++;
-            }
-
-            row = initialRow;
-            for (String date: qHeatingValues.keySet()){
-                cells.get(row,13).setValue(qHeatingValues.get(date)*interval/1000);
+                cells.get(row, dateEnergyCol).setValue(date);
+                cells.get(row, QCoolingEnergyCol).setValue(qCoolingValues.get(date));
+                cells.get(row, QHeatingEnergyCol).setValue(qHeatingValues.get(date));
+                cells.get(row, EconomizerEnergyCol).setValue(sorted.get(date).get(econ));
+                cells.get(row, OATEnergyCol).setValue(sorted.get(date).get(oat));
+                cells.get(row, MATEnergyCol).setValue(sorted.get(date).get(mat));
+                cells.get(row, SATEnergyCol).setValue(sorted.get(date).get(sat));
+                cells.get(row, PreheatEnergyCol).setValue(sorted.get(date).get(preheat));
+                cells.get(row, HeatingEnergyCol).setValue(qHeatingValues.get(date) * interval / 1000);
+                cells.get(row, CoolingEnergyCol).setValue(qCoolingValues.get(date) * interval / 1000);
+                energy.put(date, new ArrayList<>(Arrays.asList(0.0, 0.0)));
+                energy.get(date).add(0, qCoolingValues.get(date) * interval / 1000);
+                energy.get(date).add(1, qHeatingValues.get(date) * interval / 1000);
                 row++;
             }
 
@@ -919,6 +856,70 @@ public class util {
             }
             col = initialCol;
             row++;
+        }
+    }
+
+    public static void syncOccupancyTableDataWithEnergyData(Worksheet energyWorksheet, String columnName, TreeMap<Integer, TreeMap<LocalTime, Integer>> ccupancyTablesMapping, int col){
+        Cells cells = energyWorksheet.getCells();
+        cells.get(0, col).setValue(columnName);
+        for (int i = 1; i <= cells.getMaxDataRow(); i++){
+            LocalDateTime currentTime = LocalDateTime.parse(cells.get(i, dateEnergyCol).getStringValue(), formatter);
+            TreeMap<LocalTime, Integer> currentOccupancyTable = ccupancyTablesMapping.get(currentTime.getDayOfWeek().getValue());
+            if (currentOccupancyTable.containsKey(currentTime.toLocalTime())){
+                if (currentOccupancyTable.get(currentTime.toLocalTime()) > 0){
+                    cells.get(i, col).setValue(1);
+                } else {
+                    cells.get(i, col).setValue(currentOccupancyTable.get(currentTime.toLocalTime()));
+                }
+            }
+        }
+    }
+
+    /**
+     * Return the following mapping with the following example structure:
+     * 1 (the Occupancy Value/Status):
+     *      01/01/2018 09:00:00 AM: [16.2, 30.5, 303.5],
+     *      01/01/2018 09:05:00 AM: [16.2, 30.5, 303.5],
+     * @param col the column where the occupancy value is
+     * @param worksheet the worksheet where all the data is
+     */
+    public static TreeMap<Integer, TreeMap<LocalDateTime, ArrayList<Double>>> createOATvsEnergyBasedOnOccupancyValue(Worksheet worksheet, int col){
+        TreeMap<Integer, TreeMap<LocalDateTime, ArrayList<Double>>> result = new TreeMap<>();
+        Cells cells = worksheet.getCells();
+        for (int i = 1; i < cells.getMaxDataRow(); i++){
+            Integer currentOccupancyValue = cells.get(i, col).getIntValue();
+            LocalDateTime currentDateTime = LocalDateTime.parse(cells.get(i, dateEnergyCol).getStringValue(), formatter);
+            Double currentOAT = Double.parseDouble(cells.get(i, OATEnergyCol).getStringValue());
+            Double currentCoolingEnergy = cells.get(i, CoolingEnergyCol).getDoubleValue();
+            Double currentHeatingEnergy = cells.get(i, HeatingEnergyCol).getDoubleValue();
+            if (!result.containsKey(currentOccupancyValue)){
+                result.put(currentOccupancyValue, new TreeMap<>());
+            }
+            result.get(currentOccupancyValue).put(currentDateTime, new ArrayList<>(Arrays.asList(currentOAT, currentCoolingEnergy, currentHeatingEnergy)));
+        }
+        return result;
+    }
+
+    public static void writeOATvsEnergyToExcel(Worksheet worksheet, String name, TreeMap<Integer, TreeMap<LocalDateTime, ArrayList<Double>>> mapping, int row, int col){
+        Cells cells = worksheet.getCells();
+        int initialRow = row;
+        for (Integer occupancyValue: mapping.keySet()){
+            TreeMap<LocalDateTime, ArrayList<Double>> keyTime_valueOATCoolHeat = mapping.get(occupancyValue);
+            cells.get(row, col).setValue(name + " occupancy value " + occupancyValue);
+            cells.get(row, col+1).setValue("OAT (°F)");
+            cells.get(row, col+2).setValue("Cooling Energy (thousand Btu)");
+            cells.get(row, col+3).setValue("Heating Energy (thousand Btu)");
+
+            for (LocalDateTime time: keyTime_valueOATCoolHeat.keySet()){
+                row++;
+                ArrayList<Double> currentValues = keyTime_valueOATCoolHeat.get(time);
+                cells.get(row, col).setValue(time.toString());
+                cells.get(row, col+1).setValue(currentValues.get(0));
+                cells.get(row, col+2).setValue(currentValues.get(1));
+                cells.get(row, col+3).setValue(currentValues.get(2));
+            }
+            col+=4;
+            row = initialRow;
         }
     }
 

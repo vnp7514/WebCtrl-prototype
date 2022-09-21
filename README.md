@@ -80,6 +80,8 @@ The following are the must-have names under the `Type` column of `Trend` workshe
 * "oa_temp  (℉)"
 * "Preheat Discharge Temp (℉)"
 
+**_These will be used in the Cooling and Heating Calculation_**
+
 Then the code will use the provided information to pull data from WebCtrl. The results will be stored in 2 worksheets: `Trend Values` and `Trend Values Sorted`.
 `Trend Value` contains the raw data returned from WebCtrl. For `Trend Values Sorted`, data is aggregated into the same 
 time bucket. For example, all data for _**01/01/2019 08:00:00 AM**_ will be under the same bucket. For any trend data
@@ -87,45 +89,58 @@ that does not have data for that time, there will be an empty string inserted th
 
 ## Step 3: Calculate Energy
 ### Cooling and Heating
-1) Calculating Q values: (stored in `Energy` worksheet)
-   - Q values are only calculated for those time buckets that have all the **trend data with must-have names** listed above.
-   - **Q value = 0.01791 * 070_ahu_03_sa_air_flow *
-      (Preheat Discharge Temp - 070_ahu_03_ma_temp)**
-2) Calculating Q Cooling values: (stored in `Energy` worksheet)
-   - Q values are only calculated for those time buckets that have all the **trend data with must-have names** listed above.
-   - **Q Cooling = 0.01791 * 070_ahu_03_sa_air_flow *
-      (070_ahu_03_sa_temp - Preheat Discharge Temp)**
-3) Calculating Q Heating values: (stored in `Energy` worksheet)
-   - Q values are only calculated for those time buckets that have all the **trend data with must-have names** listed above.
-   - **Q Heating = 0.01791 * 070_ahu_03_sa_air_flow *
-     (Preheat Discharge Temp - 070_ahu_03_ma_temp)**
-4) Calculating Cooling/Heating Energy (Btu) (stored in `Energy` worksheet)
-   - Finding the time interval:
-     - In the code, we are getting the first and second time buckets from `Trend Values Sorted` worksheet, 
-     then use the difference between those as the time interval
-     - For each of the Q values calculated in step 1:
-       - **if Q value < 0** then calculate: 
-         - **Cooling Energy (thousand Btu) = Q value * interval / 1000**
-       - **if Q value > 0** then calculate:
-         - **Heating Energy (thousand Btu) = Q value * interval / 1000**
-     - Another way to calculate:
-       - Cooling Energy (thousand Btu) = Q Cooling * interval / 1000
-       - Heating Energy (thousand Btu) = Q Heating * interval / 1000
-       - **Note**: The values above are also stored in `Degree Days` worksheet
-5) Aggregate data under each day of week (Mon, Tue, Wed, Thu, Fri, and so on)
-   - This is reflected in the `Day Graph` worksheet.
-   - Group data by the day of the week specified in the date. For example, if the date is a Monday, then it should be put
-   under the Monday group.
-   - At the top of the column, the value should be the sum of all the values in the column multiply
-    by the time interval (in this case, it is 15 minutes - the difference between the
-   first time bucket and the second time bucket).
-6) Aggregate data under each month
+1) Obtain the entering temperature (Ti) and leaving temperature (To) for cooling and heating calculation for each AHU. Basically, there are 5 user inputs for each AHU:
+   1) Cooling Ti
+   2) Cooling To
+   3) Heating Ti
+   4) Heating To
+   5) Airflow
+   - **Note**: The user will provide these inputs based on the location of temperature sensor
+   - **Energy Engineer Note:** Entering temperature is before the coil, leaving temperature is after the coil.
+   - Example for AHU-03:
+     - For heating
+       - Ti = Mixed Air Temperature (from "070_ahu_03_ma_temp (℉)" trend above)
+       - To = Preheat Discharge Temperature (from "Preheat Discharge Temp (℉)" trend above)
+     - For cooling
+       - Ti = Preheat Discharge Temperature (from "Preheat Discharge Temp (℉)" trend above)
+       - To = Supply Air Temperature (from "070_ahu_03_sa_temp (℉)" trend above)
+     - Airflow = Supply Airflow ( from "070_ahu_03_sa_air_flow (cfm)" trend above)
+   - **The prototype is using the above values by default. For the MVP, it should allow the user to provide and choose the values.**
+2) Calculate Q values for Cooling and Heating ( units are in brackets [ ] ) (stored in `Energy` worksheet):
+    - General formula for Q values:
+      - **Q [Btu/min] = 0.01791 [Btu/(ft^3 . °F)] * Airflow [ft^3/min] * (To [℉] - Ti [℉])**
+    - Example:
+      - Apply the general formula to get Cooling Q value for AHU-03:
+        - Q Cooling [Btu/min] = 0.01791  * Supply Airflow * ( Supply Air Temperature - Preheat Discharge Temperature )
+      - Apply the general formula to get Heating Q value for AHU-03:
+        - Q Heating [Btu/min] = 0.01791 * Supply Airflow * ( Preheat Discharge Temperature - Mixed Air Temperature )
+3) Determine the time interval for energy calculation
+   - For the MVP, ideally the time interval will be the time interval in the database for all energy variables specified in step 1  
+   - In the prototype code, we are getting the first and second time buckets from Trend Values Sorted worksheet, then use the difference between those as the time interval
+    because the data in the worksheet is sorted and any time bucket that is missing data is at the bottom.
+4) Calculate Cooling and Heating Energy [Btu] ( units are in brackets [ ] ) (stored in `Energy` worksheet):
+   - General formula:
+     - **Energy [Btu] = Q [Btu/min] * time interval [min]**
+   - Example:
+     - Apply the general formula to get Cooling Energy [thousand Btu]:
+       - Cooling Energy [thousand Btu] = Q Cooling [Btu/min] * time interval [min] / 1000
+       - _Above has /1000 to get thousand Btu, without it, the unit will be Btu_
+     - Apply the general formula to get Heating Energy [thousand Btu]:
+       - Heating Energy [thousand Btu] = Q Heating [Btu/min] * time interval [min] / 1000
+       - _Above has /1000 to get thousand Btu, without it, the unit will be Btu_
+     - **Note**: The values above are also stored in `Degree Days` worksheet
+5) Determine Occupied and Unoccupied periods
+6) Determine the baseline
+   1) Energy vs Outdoor Air Temperature
+   2) Energy vs Cooling/Heating Degree Days
+   3) 
+7) Aggregate data under each month
    - The result is saved in the `Month Degree Days` worksheet
    - Calculate the sum of all Cooling energy under a month. For example, calculate
    the cooling energy of January by summing up all cooling energy under all days of January
    - Calculate the sum of all Heatin energy under a month. For example, calculate
    the heating energy of January by summing up all heating energy under all days January
-7) Graphing
+8) Graphing
    1) Cooling Degree Days vs Cooling Energy (For both day data (`Degree Days` worksheet) and 
    month data (`Month Degree Days` worksheet))
       - graph a scatter plot between Cooling Degree Days and Cooling energy
@@ -133,7 +148,7 @@ that does not have data for that time, there will be an empty string inserted th
       - Y Axis = Cooling Energy
    2) Do the same for Heating Degree Days and Heating Energy
    3) Extract the trendlines from both cooling and heating graphs
-8) Create baseline table for cooling and heating
+9) Create baseline table for cooling and heating
    - Obtain the information below:
       - From the `baseline` Excel graph:
         - the intercept and slope of the heating/cooling month graph above
