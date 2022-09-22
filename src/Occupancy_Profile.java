@@ -1,5 +1,4 @@
 import com.aspose.cells.*;
-import com.sun.source.tree.Tree;
 
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
@@ -9,25 +8,27 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 public class Occupancy_Profile {
-    private static DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm:ss a");
-    private static DateTimeFormatter timeFormatterForReport = DateTimeFormatter.ofPattern("h:mm a");
-    private static DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm:ss a");
-    private static int vavNameColInReport = 1;
-    private static int vavOccupancyStateInReport = 2;
-    public static int occupancyProfileReport = 15;
-    public static int occupancyProfileTrend = 30;
-    public static int occupancyProfileSIS = 0;
-    private static int chartArrayName = 0;
-    private static int chartArrayData = 1;
-    private static int weeklyCategoryAxisTickLabelSpacing = 24;
-    private static int weeklyCategoryAxisTickMarkSpacing = 12;
-    private static int weeklyCategoryAxisTickLabelTextRotation = 90;
-    private static int recordIntervalInMinute = 5;
-    private static int startTimeEndTimeRowSIS = 8;
-    private static int startTimeEndTimeRowTrend = 38;
-    private static int startTimeEndTimeRowReport = 23;
-    private static String roomName = "070-1455";
-    private static String vavName = "338";
+    public static final int occupancyProfileReport = 15;
+    public static final int occupancyProfileTrend = 30;
+    public static final int occupancyProfileSIS = 0;
+    private static final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm:ss a");
+    private static final DateTimeFormatter timeFormatterForReport = DateTimeFormatter.ofPattern("h:mm a");
+    private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm:ss a");
+    private static final int vavNameInTrendInput = 0;
+    private static final int vavNameColInReport = 1;
+    private static final int vavOccupancyStateInReport = 2;
+    private static final int chartArrayName = 0;
+    private static final int chartArrayData = 1;
+    private static final int weeklyCategoryAxisTickLabelSpacing = 24;
+    private static final int weeklyCategoryAxisTickMarkSpacing = 12;
+    private static final int weeklyCategoryAxisTickLabelTextRotation = 90;
+    private static final int recordIntervalInMinute = 5;
+    private static final int startTimeEndTimeRowSIS = 8;
+    private static final int startTimeEndTimeRowTrend = 38;
+    private static final int startTimeEndTimeRowReport = 23;
+    private static final String reportString = "report";
+    private static final String sisString = "SIS";
+    private static final String trendString = "trend";
 
     /**
      * Used to check whether all arrays are of the same size.
@@ -44,6 +45,26 @@ public class Occupancy_Profile {
                 throw new Exception("Mismatched Array Size!");
             }
         }
+    }
+
+    /**
+     * Deep copy the provided occupancy profile mapping
+     * @param keyDayOfWeek_valueOccupancyTable
+     * @return
+     */
+    private static TreeMap<Integer, TreeMap<LocalTime, Integer>> cloneOccupancyProfileMappings(TreeMap<Integer, TreeMap<LocalTime, Integer>>  keyDayOfWeek_valueOccupancyTable){
+        TreeMap<Integer, TreeMap<LocalTime, Integer>> result = new TreeMap<>();
+        for (Integer dayOfWeek : keyDayOfWeek_valueOccupancyTable.keySet()){
+            TreeMap<LocalTime, Integer> newList = new TreeMap<>();
+            TreeMap<LocalTime, Integer> currentList = keyDayOfWeek_valueOccupancyTable.get(dayOfWeek);
+
+            for (LocalTime time: currentList.keySet()){
+                Integer currentOccupancy = currentList.get(time);
+                newList.put(time, currentOccupancy);
+            }
+            result.put(dayOfWeek, newList);
+        }
+        return result;
     }
 
     /**
@@ -84,16 +105,68 @@ public class Occupancy_Profile {
         try{
             Workbook workbook = new Workbook(fileName);
 
-            occupancyProfileForWebCtrlTrendData(workbook);
-            occupancyProfileForSISData(workbook);
-            occupancyProfileForWebCtrlReportData(workbook);
+            ArrayList<String> vavNames = getListOfVAVNames(util.getWorksheetFromWorkbook(workbook, "WebCtrl Input"));
+            ArrayList<String> roomNames = getListOfRoomNamesBasedOnVAVNames(util.getWorksheetFromWorkbook(workbook, "Room Input data0"), vavNames);
+            checkParrallelArrays(vavNames, roomNames);
+            ArrayList<TreeMap<Integer, TreeMap<LocalTime, Integer>>> trendOccupancyProfiles = new ArrayList<>();
+            ArrayList<TreeMap<Integer, TreeMap<LocalTime, Integer>>> sisOccupancyProfiles = new ArrayList<>();
+            ArrayList<TreeMap<Integer, TreeMap<LocalTime, Integer>>> reportOccupancyProfiles = new ArrayList<>();
+            int row = 0;
+            int col = 0;
+            for (int i = 0; i < vavNames.size(); i++){
+                trendOccupancyProfiles.add(occupancyProfileForWebCtrlTrendData(workbook, vavNames.get(i), row+ (i*45), col + (i*2)));
+                sisOccupancyProfiles.add(occupancyProfileForSISData(workbook, vavNames.get(i), roomNames.get(i), row + (i*45)));
+                reportOccupancyProfiles.add(occupancyProfileForWebCtrlReportData(workbook, vavNames.get(i), roomNames.get(i), row + (i*45)));
+            }
 
-            graphOccupancyProfiles(workbook);
+            createAHUOccupancyProfile(trendOccupancyProfiles, util.getWorksheetFromWorkbook(workbook, "AHUOccupancyProfile"), occupancyProfileTrend, 0, "AHU Trend");
+            createAHUOccupancyProfile(sisOccupancyProfiles, util.getWorksheetFromWorkbook(workbook, "AHUOccupancyProfile"), occupancyProfileSIS, 0, "AHU SIS");
+            createAHUOccupancyProfile(reportOccupancyProfiles, util.getWorksheetFromWorkbook(workbook, "AHUOccupancyProfile"), occupancyProfileReport, 0, "AHU Report");
+//            graphOccupancyProfiles(workbook);
             workbook.save(fileName);
 
         } catch (Exception e){
             System.err.println("error in createOccupancyProfile " + e.getMessage());
         }
+    }
+
+    private static void createAHUOccupancyProfile(ArrayList<TreeMap<Integer, TreeMap<LocalTime, Integer>>> occupancyProfiles, Worksheet worksheet, int srow, int scol, String name){
+        TreeMap<Integer, TreeMap<LocalTime, Integer>> newOccupancyProfiles = createEmptyOccupancyTableMappings();
+        for (TreeMap<Integer, TreeMap<LocalTime, Integer>> vavOccupancyProfiles: occupancyProfiles) {
+            for (Integer dayOfWeek : vavOccupancyProfiles.keySet()) {
+                TreeMap<LocalTime, Integer> vavOccupancyProfile = vavOccupancyProfiles.get(dayOfWeek);
+                TreeMap<LocalTime, Integer> ahuOccupancyProfile = newOccupancyProfiles.get(dayOfWeek);
+                for (LocalTime time : vavOccupancyProfile.keySet()){
+                    Integer currentValue = ahuOccupancyProfile.get(time);
+                    ahuOccupancyProfile.put(time, currentValue + vavOccupancyProfile.get(time));
+                }
+            }
+        }
+        writeOccupancyTablesMappingstoExcel(worksheet, newOccupancyProfiles, srow, scol, name);
+    }
+
+    public static ArrayList<String> getListOfVAVNames(Worksheet worksheet){
+        Cells cells = worksheet.getCells();
+        ArrayList<String> result = new ArrayList<>();
+        for (int i = 1; i <= cells.getMaxDataRow(); i++){
+            result.add(cells.get(i, vavNameInTrendInput).getStringValue());
+        }
+        return result;
+    }
+
+    public static ArrayList<String> getListOfRoomNamesBasedOnVAVNames(Worksheet worksheet, ArrayList<String> vavNames) throws Exception {
+        ArrayList<String> result = new ArrayList<>();
+        ArrayList<String> roomIDs = getStringFromExcel(worksheet, "Room-ID", 11, 0);
+        ArrayList<String> vavIDs = getStringFromExcel(worksheet, "VAV_ID", 11, 0);
+        checkParrallelArrays(roomIDs, vavIDs);
+        for (String vavName: vavNames) {
+            for (int i = 0; i < vavIDs.size(); i++) {
+                if (vavName.equalsIgnoreCase(vavIDs.get(i))){
+                    result.add("0" + roomIDs.get(i));
+                }
+            }
+        }
+        return result;
     }
 
     private static TreeMap<Integer, TreeMap<LocalTime, Integer>> createOccupancyProfileOf(String VAVName, String roomName,
@@ -213,6 +286,25 @@ public class Occupancy_Profile {
         return result;
     }
 
+    private static TreeMap<Integer, LocalTime> getEndTime(TreeMap<Integer, TreeMap<LocalTime, Integer>>  keyDayOfWeek_valueOccupancyTable){
+        TreeMap<Integer, LocalTime> result = new TreeMap<>();
+        for (Integer dayOfWeek: keyDayOfWeek_valueOccupancyTable.keySet()){
+            LocalTime end = LocalTime.MIN;
+            TreeMap<LocalTime, Integer> occupancyTable = keyDayOfWeek_valueOccupancyTable.get(dayOfWeek);
+            for (LocalTime time: occupancyTable.keySet()){
+                if (occupancyTable.get(time) != 0){
+                    end = time;
+                }
+            }
+            if (end == Collections.max(occupancyTable.keySet())){
+                end = LocalTime.of(LocalTime.MAX.getHour(),LocalTime.MAX.getMinute());
+            }
+
+            result.put(dayOfWeek, end);
+        }
+        return result;
+    }
+
     /**
      * Obtain all int values under the specified column
      * @param worksheet
@@ -299,6 +391,44 @@ public class Occupancy_Profile {
             }
         }
         return maxUncertainty;
+    }
+
+    public static TreeMap<Integer, TreeMap<LocalTime, Integer>> getOccupancyTablesMappingsFromExcel(Worksheet worksheet, int srow, int scol){
+        TreeMap<Integer, TreeMap<LocalTime, Integer>> result = new TreeMap<>();
+        Cells cells = worksheet.getCells();
+        srow++;
+        for (int i = 1; i <= 7; i++){
+            TreeMap<LocalTime, Integer> timeIntegerTreeMap = new TreeMap<>();
+            result.put(i, timeIntegerTreeMap);
+
+            for (int a = 1; a <= cells.getMaxDataColumn(); a++){
+                LocalTime currentTime = LocalTime.parse(cells.get(srow, scol+a).getStringValue());
+                Integer occupancyValue = cells.get(srow+i, scol+a).getIntValue();
+                timeIntegerTreeMap.put(currentTime, occupancyValue);
+            }
+        }
+        return result;
+    }
+
+    private static TreeMap<Integer, LocalTime> getStartTime(TreeMap<Integer, TreeMap<LocalTime, Integer>>  keyDayOfWeek_valueOccupancyTable){
+        TreeMap<Integer, LocalTime> result = new TreeMap<>();
+        for (Integer dayOfWeek: keyDayOfWeek_valueOccupancyTable.keySet()){
+            LocalTime start = LocalTime.MIN;
+            TreeMap<LocalTime, Integer> occupancyTable = keyDayOfWeek_valueOccupancyTable.get(dayOfWeek);
+            for (LocalTime time: occupancyTable.keySet()){
+                if (occupancyTable.get(time) == 0){
+                    start = time;
+                } else {
+                    start = time;
+                    break;
+                }
+            }
+            if (start == Collections.max(occupancyTable.keySet())){
+                start = LocalTime.MIN;
+            }
+            result.put(dayOfWeek, start);
+        }
+        return result;
     }
 
     /**
@@ -462,6 +592,36 @@ public class Occupancy_Profile {
                 10, 60, 20, 70);
     }
 
+    private static void graphHours(Worksheet worksheet,
+                                    String graphName,
+                                    String valueAxisName,
+                                    ArrayList<String> categoryValue,
+                                    ArrayList<ArrayList<String>> nSeriesValues,
+                                    ArrayList<Color> colorsList,
+                                    int upperLeftRow, int upperLeftColumn,
+                                    int lowerRightRow, int lowerRightColumn){
+        try {
+            int chartIndex = worksheet.getCharts().add(ChartType.COLUMN, upperLeftRow, upperLeftColumn, lowerRightRow, lowerRightColumn);
+            checkParrallelArrays(nSeriesValues, colorsList);
+            Chart chart = worksheet.getCharts().get(chartIndex);
+            chart.getTitle().setText(graphName);
+            chart.getPlotArea().getArea().setBackgroundColor(Color.getWhite());
+            chart.getPlotArea().getArea().setForegroundColor(Color.getWhite());
+            chart.getValueAxis().getTitle().setText(valueAxisName);
+
+            chart.getCategoryAxis().getTitle().setText(categoryValue.get(chartArrayName));
+            for (int i = 0; i < nSeriesValues.size(); i++){
+                ArrayList<String> currentNSeries = nSeriesValues.get(i);
+                chart.getNSeries().add(currentNSeries.get(chartArrayData), false);
+                chart.getNSeries().get(i).setName(currentNSeries.get(chartArrayName));
+                chart.getNSeries().get(i).getArea().setForegroundColor(colorsList.get(i));
+            }
+            chart.getNSeries().setCategoryData(categoryValue.get(chartArrayData));
+        } catch (Exception e){
+            System.err.println("Errors in graphHours " + e.getMessage());
+        }
+    }
+
     private static void graphOccupancyProfile(Workbook workbook,
                                                String graphName,
                                                String valueAxisName,
@@ -497,11 +657,11 @@ public class Occupancy_Profile {
         // readGraph(weeklyWorksheet);
         graphWeekly(weeklyWorksheet, "OccupancyProfile",
                 "Population",
-                new ArrayList<>(Arrays.asList("Time", "B1:YW1")),
+                new ArrayList<>(Arrays.asList("Time", weeklyWorksheet.getCells().createRange(1,1,1,weeklyWorksheet.getCells().getMaxDataColumn()).getRefersTo())),
                 new ArrayList<>(Arrays.asList(
-                        new ArrayList<>(Arrays.asList("Occupancy Sensor", "B32:YW32")),
-                        new ArrayList<>(Arrays.asList("SIS Data", "B2:YW2")),
-                        new ArrayList<>(Arrays.asList("Effective Schedule", "B17:YW17"))
+                        new ArrayList<>(Arrays.asList("Occupancy Sensor", weeklyWorksheet.getCells().createRange(32,1,1,weeklyWorksheet.getCells().getMaxDataColumn()).getRefersTo())),
+                        new ArrayList<>(Arrays.asList("SIS Data", weeklyWorksheet.getCells().createRange(2,1,1,weeklyWorksheet.getCells().getMaxDataColumn()).getRefersTo())),
+                        new ArrayList<>(Arrays.asList("Effective Schedule", weeklyWorksheet.getCells().createRange(17,1,1,weeklyWorksheet.getCells().getMaxDataColumn()).getRefersTo()))
                         )),
                 new ArrayList<>(Arrays.asList(
                         ChartType.LINE,
@@ -518,11 +678,11 @@ public class Occupancy_Profile {
                 0, 0, 20, 20);
 
         graphHours(hoursWorksheet, "Room Hours Use per Day", "",
-                new ArrayList<>(Arrays.asList("", "A1:G1")),
+                new ArrayList<>(Arrays.asList("", hoursWorksheet.getCells().createRange(1,1,1,hoursWorksheet.getCells().getMaxDataColumn()-1).getRefersTo())),
                 new ArrayList<>(Arrays.asList(
-                        new ArrayList<>(Arrays.asList("Actual Space Use", "A32:G32")),
-                        new ArrayList<>(Arrays.asList("Event Schedule", "A2:G2")),
-                        new ArrayList<>(Arrays.asList("Equipment Schedule", "A17:G17"))
+                        new ArrayList<>(Arrays.asList("Actual Space Use", hoursWorksheet.getCells().createRange(32,1,1,hoursWorksheet.getCells().getMaxDataColumn()-1).getRefersTo())),
+                        new ArrayList<>(Arrays.asList("Event Schedule", hoursWorksheet.getCells().createRange(2,1,1,hoursWorksheet.getCells().getMaxDataColumn()-1).getRefersTo())),
+                        new ArrayList<>(Arrays.asList("Equipment Schedule", hoursWorksheet.getCells().createRange(17,1,1,hoursWorksheet.getCells().getMaxDataColumn()-1).getRefersTo()))
                 )),
                 new ArrayList<>(Arrays.asList(
                         Color.getOrange(),
@@ -534,9 +694,9 @@ public class Occupancy_Profile {
         graphHours(hoursWorksheet, "Room Hours Use per Week", "",
                 new ArrayList<>(Arrays.asList("", "H1")),
                 new ArrayList<>(Arrays.asList(
-                        new ArrayList<>(Arrays.asList("Actual Space Use", "H32")),
-                        new ArrayList<>(Arrays.asList("Event Schedule", "H2")),
-                        new ArrayList<>(Arrays.asList("Equipment Schedule", "H17"))
+                        new ArrayList<>(Arrays.asList("Actual Space Use", "H33")),
+                        new ArrayList<>(Arrays.asList("Event Schedule", "H3")),
+                        new ArrayList<>(Arrays.asList("Equipment Schedule", "H18"))
                 )),
                 new ArrayList<>(Arrays.asList(
                         Color.getOrange(),
@@ -546,37 +706,6 @@ public class Occupancy_Profile {
                 20, 0, 40, 20
         );
     }
-
-    private static void graphHours(Worksheet worksheet,
-                                    String graphName,
-                                    String valueAxisName,
-                                    ArrayList<String> categoryValue,
-                                    ArrayList<ArrayList<String>> nSeriesValues,
-                                    ArrayList<Color> colorsList,
-                                    int upperLeftRow, int upperLeftColumn,
-                                    int lowerRightRow, int lowerRightColumn){
-        try {
-            int chartIndex = worksheet.getCharts().add(ChartType.COLUMN, upperLeftRow, upperLeftColumn, lowerRightRow, lowerRightColumn);
-            checkParrallelArrays(nSeriesValues, colorsList);
-            Chart chart = worksheet.getCharts().get(chartIndex);
-            chart.getTitle().setText(graphName);
-            chart.getPlotArea().getArea().setBackgroundColor(Color.getWhite());
-            chart.getPlotArea().getArea().setForegroundColor(Color.getWhite());
-            chart.getValueAxis().getTitle().setText(valueAxisName);
-
-            chart.getCategoryAxis().getTitle().setText(categoryValue.get(chartArrayName));
-            for (int i = 0; i < nSeriesValues.size(); i++){
-                ArrayList<String> currentNSeries = nSeriesValues.get(i);
-                chart.getNSeries().add(currentNSeries.get(chartArrayData), false);
-                chart.getNSeries().get(i).setName(currentNSeries.get(chartArrayName));
-                chart.getNSeries().get(i).getArea().setForegroundColor(colorsList.get(i));
-            }
-            chart.getNSeries().setCategoryData(categoryValue.get(chartArrayData));
-        } catch (Exception e){
-            System.err.println("Errors in graphHours " + e.getMessage());
-        }
-    }
-
 
     private static void graphWeekly(Worksheet worksheet,
                                       String graphName,
@@ -634,7 +763,7 @@ public class Occupancy_Profile {
         createOccupancyProfile(filename);
     }
 
-    private static void multiplyOccupiedStateByMaxOccupancyValue(TreeMap<Integer, TreeMap<LocalTime, Integer>> keyDayOfWeek_valueOccupancyTable, Workbook workbook) throws Exception {
+    private static void multiplyOccupiedStateByMaxOccupancyValue(TreeMap<Integer, TreeMap<LocalTime, Integer>> keyDayOfWeek_valueOccupancyTable, Workbook workbook, String vavName, String roomName) throws Exception {
         Worksheet sisDataWorksheet = util.getWorksheetFromWorkbook(workbook, "SIS data");
         Worksheet roomInputDataWorksheet = util.getWorksheetFromWorkbook(workbook, "Room Input data0");
         ArrayList<Integer> totalEnrolledList = getIntegerfromExcel(sisDataWorksheet, "Tot Enrl", 0, 0);
@@ -655,7 +784,7 @@ public class Occupancy_Profile {
         }
     }
 
-    private static void occupancyProfileForSISData(Workbook workbook) throws Exception {
+    private static TreeMap<Integer, TreeMap<LocalTime, Integer>> occupancyProfileForSISData(Workbook workbook, String vavName, String roomName, int srow) throws Exception {
         Worksheet worksheet = util.getWorksheetFromWorkbook(workbook,"SIS data");
         Worksheet roomInputWorksheet = util.getWorksheetFromWorkbook(workbook, "Room Input data0");
         Worksheet occupancyProfileWorksheet = util.getWorksheetFromWorkbook(workbook,"OccupancyProfile");
@@ -690,18 +819,19 @@ public class Occupancy_Profile {
                 reservedStartList, reservedEndList, totalEnrolledList, facilityIDList, mondayList, tuesdayList, wednesdayList,
                 thursdayList, fridayList, saturdayList, sundayList, uncertaintyList,vavIDList);
 
-        writeOccupancyTablesMappingstoExcel(occupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileSIS, 0);
-        writeOccupancyTableMappingsContinuouslyToExcel(continuousOccupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileSIS, 0);
-        writeOccupancyTableMappingsAsPeriodsToExcel(hoursOccupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileSIS, 0);
+        writeOccupancyTablesMappingstoExcel(occupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileSIS+srow, 0, sisString+vavName);
+        writeOccupancyTableMappingsContinuouslyToExcel(continuousOccupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileSIS+srow, 0, sisString+vavName);
+        writeOccupancyTableMappingsAsPeriodsToExcel(hoursOccupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileSIS+srow, 0, sisString+vavName);
 
         TreeMap<Integer, TreeMap<LocalTime, Integer>> keyDayOfWeek_valueOccupancyTableWith3Statuses = cloneOccupancyProfileMappings(keyDayOfWeek_valueOccupancyTable);
         updateOccupancyProfileMappingsWith3Statuses(keyDayOfWeek_valueOccupancyTableWith3Statuses);
-        writeOccupancyTablesMappingstoExcel(statusesOccupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTableWith3Statuses, occupancyProfileSIS, 0);
-        writeStartTimeEndTimeToExcel(statusesOccupancyProfileWorksheet, getStartTime(keyDayOfWeek_valueOccupancyTable), getEndTime(keyDayOfWeek_valueOccupancyTable), startTimeEndTimeRowSIS, 0);
+        writeOccupancyTablesMappingstoExcel(statusesOccupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTableWith3Statuses, occupancyProfileSIS+srow, 0, sisString+vavName);
+        writeStartTimeEndTimeToExcel(statusesOccupancyProfileWorksheet, getStartTime(keyDayOfWeek_valueOccupancyTable), getEndTime(keyDayOfWeek_valueOccupancyTable), startTimeEndTimeRowSIS+srow, 0);
+        return keyDayOfWeek_valueOccupancyTable;
     }
 
-    private static void occupancyProfileForWebCtrlReportData(Workbook workbook) throws Exception {
-        String vav = "70-VAV-338~";
+    private static TreeMap<Integer, TreeMap<LocalTime, Integer>> occupancyProfileForWebCtrlReportData(Workbook workbook, String vavName, String roomName, int srow) throws Exception {
+        String vav = "70-VAV-"+vavName+"~";
         Worksheet inputWorksheet = util.getWorksheetFromWorkbook(workbook,"WebCtrlReportInput");
         Worksheet rawDataWorksheet = util.getWorksheetFromWorkbook(workbook,"ReportRawData");
         Worksheet occupancyProfileWorksheet = util.getWorksheetFromWorkbook(workbook,"OccupancyProfile");
@@ -713,20 +843,21 @@ public class Occupancy_Profile {
         util.saveReportToExcel(rawDataWorksheet, report);
         TreeMap<Integer, TreeMap<LocalTime, Integer>> keyDayOfWeek_valueOccupancyTable = createOccupancyTableMappingsFromReport(report, vav);
 
-        multiplyOccupiedStateByMaxOccupancyValue(keyDayOfWeek_valueOccupancyTable, workbook);
+        multiplyOccupiedStateByMaxOccupancyValue(keyDayOfWeek_valueOccupancyTable, workbook, vavName, roomName);
 
-        writeOccupancyTablesMappingstoExcel(occupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileReport, 0);
-        writeOccupancyTableMappingsContinuouslyToExcel(continuousOccupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileReport, 0);
-        writeOccupancyTableMappingsAsPeriodsToExcel(hoursOccupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileReport, 0);
+        writeOccupancyTablesMappingstoExcel(occupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileReport+srow, 0, reportString+vavName);
+        writeOccupancyTableMappingsContinuouslyToExcel(continuousOccupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileReport+srow, 0, reportString+vavName);
+        writeOccupancyTableMappingsAsPeriodsToExcel(hoursOccupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileReport+srow, 0, reportString+vavName);
 
 
         TreeMap<Integer, TreeMap<LocalTime, Integer>> keyDayOfWeek_valueOccupancyTableWith3Statuses = cloneOccupancyProfileMappings(keyDayOfWeek_valueOccupancyTable);
         updateOccupancyProfileMappingsWith3Statuses(keyDayOfWeek_valueOccupancyTableWith3Statuses);
-        writeOccupancyTablesMappingstoExcel(statusesOccupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTableWith3Statuses, occupancyProfileReport, 0);
-        writeStartTimeEndTimeToExcel(statusesOccupancyProfileWorksheet, getStartTime(keyDayOfWeek_valueOccupancyTable), getEndTime(keyDayOfWeek_valueOccupancyTable), startTimeEndTimeRowReport, 0);
+        writeOccupancyTablesMappingstoExcel(statusesOccupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTableWith3Statuses, occupancyProfileReport+srow, 0, reportString+vavName);
+        writeStartTimeEndTimeToExcel(statusesOccupancyProfileWorksheet, getStartTime(keyDayOfWeek_valueOccupancyTable), getEndTime(keyDayOfWeek_valueOccupancyTable), startTimeEndTimeRowReport+srow, 0);
+        return keyDayOfWeek_valueOccupancyTable;
     }
 
-    private static void occupancyProfileForWebCtrlTrendData(Workbook workbook) throws Exception {
+    private static TreeMap<Integer, TreeMap<LocalTime, Integer>> occupancyProfileForWebCtrlTrendData(Workbook workbook, String vavName, int srow, int scol) throws Exception {
 
 
         Worksheet inputWorksheet = util.getWorksheetFromWorkbook(workbook,"WebCtrl Input");
@@ -736,8 +867,8 @@ public class Occupancy_Profile {
         Worksheet hoursOccupancyProfileWorksheet = util.getWorksheetFromWorkbook(workbook, "hoursOccupancyProfile");
         Worksheet statusesOccupancyProfileWorksheet = util.getWorksheetFromWorkbook(workbook, "3statuses");
 
-        String[] results = util.pullDataFromWebCtrl(inputWorksheet, "Occupancy Contact State");
-        util.saveRawDataToExcel("Occupancy Contact State", rawDataWorksheet, 0, 0, results);
+        String[] results = util.pullDataFromWebCtrl(inputWorksheet, vavName);
+        util.saveRawDataToExcel("Occupancy Contact State " + vavName, rawDataWorksheet, scol, 0, results);
         TreeMap<Integer, TreeMap<LocalTime, Integer>> keyDayOfWeek_valueOccupancyTable = createEmptyOccupancyTableMappings();
 
         for (int i = 0; i < results.length; i+=2){
@@ -759,14 +890,15 @@ public class Occupancy_Profile {
                 }
             }
         }
-        writeOccupancyTablesMappingstoExcel(occupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileTrend, 0);
-        writeOccupancyTableMappingsContinuouslyToExcel(continuousOccupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileTrend, 0);
-        writeOccupancyTableMappingsAsPeriodsToExcel(hoursOccupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileTrend, 0);
+        writeOccupancyTablesMappingstoExcel(occupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileTrend+srow, 0, trendString + vavName);
+        writeOccupancyTableMappingsContinuouslyToExcel(continuousOccupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileTrend+srow, 0, trendString+vavName);
+        writeOccupancyTableMappingsAsPeriodsToExcel(hoursOccupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTable, occupancyProfileTrend+srow, 0, trendString+vavName);
 
         TreeMap<Integer, TreeMap<LocalTime, Integer>> keyDayOfWeek_valueOccupancyTableWith3Statuses = cloneOccupancyProfileMappings(keyDayOfWeek_valueOccupancyTable);
         updateOccupancyProfileMappingsWith3Statuses(keyDayOfWeek_valueOccupancyTableWith3Statuses);
-        writeOccupancyTablesMappingstoExcel(statusesOccupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTableWith3Statuses, occupancyProfileTrend, 0);
-        writeStartTimeEndTimeToExcel(statusesOccupancyProfileWorksheet, getStartTime(keyDayOfWeek_valueOccupancyTable), getEndTime(keyDayOfWeek_valueOccupancyTable), startTimeEndTimeRowTrend, 0);
+        writeOccupancyTablesMappingstoExcel(statusesOccupancyProfileWorksheet, keyDayOfWeek_valueOccupancyTableWith3Statuses, occupancyProfileTrend+srow, 0, trendString+vavName);
+        writeStartTimeEndTimeToExcel(statusesOccupancyProfileWorksheet, getStartTime(keyDayOfWeek_valueOccupancyTable), getEndTime(keyDayOfWeek_valueOccupancyTable), startTimeEndTimeRowTrend+srow, 0);
+        return keyDayOfWeek_valueOccupancyTable;
     }
 
     private static void parseOccupancyStateFromReport(String state, TreeMap<Integer, TreeMap<LocalTime, Integer>> keyDayOfWeek_valueOccupancyTable){
@@ -799,99 +931,6 @@ public class Occupancy_Profile {
 
     private static void readGraph(Worksheet worksheet){
         Chart chart = worksheet.getCharts().get(0);
-    }
-
-    private static void writeOccupancyTableMappingsContinuouslyToExcel(Worksheet worksheet, TreeMap<Integer, TreeMap<LocalTime, Integer>> keyDayOfWeek_valueOccupancyTable, int row, int col){
-        Cells cells = worksheet.getCells();
-        cells.get(row, col).setValue("Time");
-        cells.get(row+1, col).setValue("Value");
-        col++;
-        for (Integer dayOfWeek : keyDayOfWeek_valueOccupancyTable.keySet()){
-            String code = DayOfWeek.of(dayOfWeek).toString().substring(0,3);
-            TreeMap<LocalTime, Integer> occupancyTable = keyDayOfWeek_valueOccupancyTable.get(dayOfWeek);
-            for (LocalTime time: occupancyTable.keySet()){
-                cells.get(row, col).setValue(code + " " + time.toString());
-                cells.get(row+1, col).setValue(occupancyTable.get(time));
-                col++;
-            }
-        }
-    }
-
-    /**
-     * This will create the following table in Excel:
-     *          | Monday | Tuesday | .....
-     *  Schedule| 20     | 30      | .....
-     *  SIS data| 30     | 20      | .....
-     *  where 20 and 30 are examples of room hours used in that day
-     * @param worksheet
-     * @param keyDayOfWeek_valueOccupancyTable
-     * @param row
-     * @param col
-     */
-    private static void writeOccupancyTableMappingsAsPeriodsToExcel(Worksheet worksheet, TreeMap<Integer, TreeMap<LocalTime, Integer>> keyDayOfWeek_valueOccupancyTable, int row, int col) throws Exception {
-        Cells cells = worksheet.getCells();
-        double allTimeTotalHours = 0.0;
-        for (Integer dayOfWeek: keyDayOfWeek_valueOccupancyTable.keySet()){
-            String code = DayOfWeek.of(dayOfWeek).toString();
-            cells.get(row, col).setValue(code);
-            TreeMap<LocalTime, Integer> occupancyTable = keyDayOfWeek_valueOccupancyTable.get(dayOfWeek);
-            long totalMinutes = 0;
-            if (occupancyTable.keySet().size() < 1){
-                throw new Exception("Not enough time to use writeOccupancyTableMappingsAsPeriodsToExcel");
-            }
-            LocalTime[] localTimes = occupancyTable.keySet().toArray(new LocalTime[0]);
-            LocalTime initialLocalTime = localTimes[0];
-            LocalTime previousLocalTime = null;
-            for (LocalTime time: occupancyTable.keySet()){
-                if (previousLocalTime == null){
-                    if (occupancyTable.get(time) > 0){
-                        previousLocalTime = time;
-                    }
-                } else {
-                    if (occupancyTable.get(time) == 0){
-                        long minutes = previousLocalTime.until(time, ChronoUnit.MINUTES) - recordIntervalInMinute;
-                        totalMinutes += minutes;
-                        previousLocalTime = null;
-                    }
-                }
-            }
-            double totalHours = 0;
-            if (previousLocalTime != null){
-                if (previousLocalTime.equals(initialLocalTime)){
-                     totalHours = 24;
-                } else {
-                    totalMinutes += previousLocalTime.until(LocalTime.MIDNIGHT, ChronoUnit.MINUTES) - recordIntervalInMinute;
-                    totalHours = (double) totalMinutes/ 60.0;
-                }
-            } else {
-                totalHours = (double) totalMinutes / 60.0;
-            }
-            cells.get(row+1, col).setValue(totalHours);
-            col++;
-            allTimeTotalHours += totalHours;
-        }
-        cells.get(row, col).setValue("Total");
-        cells.get(row+1, col).setValue(allTimeTotalHours);
-    }
-
-    /**
-     * Deep copy the provided occupancy profile mapping
-     * @param keyDayOfWeek_valueOccupancyTable
-     * @return
-     */
-    private static TreeMap<Integer, TreeMap<LocalTime, Integer>> cloneOccupancyProfileMappings(TreeMap<Integer, TreeMap<LocalTime, Integer>>  keyDayOfWeek_valueOccupancyTable){
-        TreeMap<Integer, TreeMap<LocalTime, Integer>> result = new TreeMap<>();
-        for (Integer dayOfWeek : keyDayOfWeek_valueOccupancyTable.keySet()){
-            TreeMap<LocalTime, Integer> newList = new TreeMap<>();
-            TreeMap<LocalTime, Integer> currentList = keyDayOfWeek_valueOccupancyTable.get(dayOfWeek);
-
-            for (LocalTime time: currentList.keySet()){
-                Integer currentOccupancy = currentList.get(time);
-                newList.put(time, currentOccupancy);
-            }
-            result.put(dayOfWeek, newList);
-        }
-        return result;
     }
 
     /**
@@ -957,62 +996,87 @@ public class Occupancy_Profile {
         }
     }
 
-    private static TreeMap<Integer, LocalTime> getStartTime(TreeMap<Integer, TreeMap<LocalTime, Integer>>  keyDayOfWeek_valueOccupancyTable){
-        TreeMap<Integer, LocalTime> result = new TreeMap<>();
+    /**
+     * This will create the following table in Excel:
+     *          | Monday | Tuesday | .....
+     *  Schedule| 20     | 30      | .....
+     *  SIS data| 30     | 20      | .....
+     *  where 20 and 30 are examples of room hours used in that day
+     * @param worksheet
+     * @param keyDayOfWeek_valueOccupancyTable
+     * @param row
+     * @param col
+     */
+    private static void writeOccupancyTableMappingsAsPeriodsToExcel(Worksheet worksheet, TreeMap<Integer, TreeMap<LocalTime, Integer>> keyDayOfWeek_valueOccupancyTable, int row, int col, String name) throws Exception {
+        Cells cells = worksheet.getCells();
+        cells.get(row, col).setValue(name);
+        row++;
+        double allTimeTotalHours = 0.0;
         for (Integer dayOfWeek: keyDayOfWeek_valueOccupancyTable.keySet()){
-            LocalTime start = LocalTime.MIN;
+            String code = DayOfWeek.of(dayOfWeek).toString();
+            cells.get(row, col).setValue(code);
             TreeMap<LocalTime, Integer> occupancyTable = keyDayOfWeek_valueOccupancyTable.get(dayOfWeek);
+            long totalMinutes = 0;
+            if (occupancyTable.keySet().size() < 1){
+                throw new Exception("Not enough time to use writeOccupancyTableMappingsAsPeriodsToExcel");
+            }
+            LocalTime[] localTimes = occupancyTable.keySet().toArray(new LocalTime[0]);
+            LocalTime initialLocalTime = localTimes[0];
+            LocalTime previousLocalTime = null;
             for (LocalTime time: occupancyTable.keySet()){
-                if (occupancyTable.get(time) == 0){
-                    start = time;
+                if (previousLocalTime == null){
+                    if (occupancyTable.get(time) > 0){
+                        previousLocalTime = time;
+                    }
                 } else {
-                    start = time;
-                    break;
+                    if (occupancyTable.get(time) == 0){
+                        long minutes = previousLocalTime.until(time, ChronoUnit.MINUTES) - recordIntervalInMinute;
+                        totalMinutes += minutes;
+                        previousLocalTime = null;
+                    }
                 }
             }
-            if (start == Collections.max(occupancyTable.keySet())){
-                start = LocalTime.MIN;
+            double totalHours = 0;
+            if (previousLocalTime != null){
+                if (previousLocalTime.equals(initialLocalTime)){
+                     totalHours = 24;
+                } else {
+                    totalMinutes += previousLocalTime.until(LocalTime.MIDNIGHT, ChronoUnit.MINUTES) - recordIntervalInMinute;
+                    totalHours = (double) totalMinutes/ 60.0;
+                }
+            } else {
+                totalHours = (double) totalMinutes / 60.0;
             }
-            result.put(dayOfWeek, start);
+            cells.get(row+1, col).setValue(totalHours);
+            col++;
+            allTimeTotalHours += totalHours;
         }
-        return result;
+        cells.get(row, col).setValue("Total");
+        cells.get(row+1, col).setValue(allTimeTotalHours);
     }
 
-    private static TreeMap<Integer, LocalTime> getEndTime(TreeMap<Integer, TreeMap<LocalTime, Integer>>  keyDayOfWeek_valueOccupancyTable){
-        TreeMap<Integer, LocalTime> result = new TreeMap<>();
-        for (Integer dayOfWeek: keyDayOfWeek_valueOccupancyTable.keySet()){
-            LocalTime end = LocalTime.MIN;
+    private static void writeOccupancyTableMappingsContinuouslyToExcel(Worksheet worksheet, TreeMap<Integer, TreeMap<LocalTime, Integer>> keyDayOfWeek_valueOccupancyTable, int row, int col, String name){
+        Cells cells = worksheet.getCells();
+        cells.get(row, col).setValue(name);
+        row++;
+        cells.get(row, col).setValue("Time");
+        cells.get(row+1, col).setValue("Value");
+        col++;
+        for (Integer dayOfWeek : keyDayOfWeek_valueOccupancyTable.keySet()){
+            String code = DayOfWeek.of(dayOfWeek).toString().substring(0,3);
             TreeMap<LocalTime, Integer> occupancyTable = keyDayOfWeek_valueOccupancyTable.get(dayOfWeek);
             for (LocalTime time: occupancyTable.keySet()){
-                if (occupancyTable.get(time) != 0){
-                    end = time;
-                }
+                cells.get(row, col).setValue(code + " " + time.toString());
+                cells.get(row+1, col).setValue(occupancyTable.get(time));
+                col++;
             }
-            if (end == Collections.max(occupancyTable.keySet())){
-                end = LocalTime.of(LocalTime.MAX.getHour(),LocalTime.MAX.getMinute());
-            }
-
-            result.put(dayOfWeek, end);
-        }
-        return result;
-    }
-
-    private static void writeStartTimeEndTimeToExcel(Worksheet worksheet, TreeMap<Integer, LocalTime> startTimes, TreeMap<Integer, LocalTime> endTimes, int srow, int scol){
-        Cells cells = worksheet.getCells();
-        cells.get(srow, scol).setValue("Date");
-        cells.get(srow+1, scol).setValue("StartTime");
-        cells.get(srow+2, scol).setValue("EndTime");
-        for (Integer dayOfWeek: startTimes.keySet()){
-            cells.get(srow, scol+dayOfWeek).setValue(DayOfWeek.of(dayOfWeek));
-            cells.get(srow+1, scol+dayOfWeek).setValue(startTimes.get(dayOfWeek).toString());
-        }
-        for (Integer dayOfWeek: endTimes.keySet()){
-            cells.get(srow+2, scol+dayOfWeek).setValue(endTimes.get(dayOfWeek).toString());
         }
     }
 
-    private static void writeOccupancyTablesMappingstoExcel(Worksheet worksheet, TreeMap<Integer, TreeMap<LocalTime, Integer>> keyDayOfWeek_valueOccupancyTable, int row, int col){
+    private static void writeOccupancyTablesMappingstoExcel(Worksheet worksheet, TreeMap<Integer, TreeMap<LocalTime, Integer>> keyDayOfWeek_valueOccupancyTable, int row, int col, String name){
         Cells cells = worksheet.getCells();
+        cells.get(row, col).setValue(name);
+        row++;
         int intialCol = col;
         for (Integer dayOfWeek : keyDayOfWeek_valueOccupancyTable.keySet()){
             cells.get(row, col).setValue("Time");
@@ -1028,19 +1092,18 @@ public class Occupancy_Profile {
         }
     }
 
-    public static TreeMap<Integer, TreeMap<LocalTime, Integer>> getOccupancyTablesMappingsFromExcel(Worksheet worksheet, int srow, int scol){
-        TreeMap<Integer, TreeMap<LocalTime, Integer>> result = new TreeMap<>();
+    private static void writeStartTimeEndTimeToExcel(Worksheet worksheet, TreeMap<Integer, LocalTime> startTimes, TreeMap<Integer, LocalTime> endTimes, int srow, int scol){
         Cells cells = worksheet.getCells();
-        for (int i = 1; i <= 7; i++){
-            TreeMap<LocalTime, Integer> timeIntegerTreeMap = new TreeMap<>();
-            result.put(i, timeIntegerTreeMap);
-
-            for (int a = 1; a <= cells.getMaxDataColumn(); a++){
-                LocalTime currentTime = LocalTime.parse(cells.get(srow, scol+a).getStringValue());
-                Integer occupancyValue = cells.get(srow+i, scol+a).getIntValue();
-                timeIntegerTreeMap.put(currentTime, occupancyValue);
-            }
+        srow++;
+        cells.get(srow, scol).setValue("Date");
+        cells.get(srow+1, scol).setValue("StartTime");
+        cells.get(srow+2, scol).setValue("EndTime");
+        for (Integer dayOfWeek: startTimes.keySet()){
+            cells.get(srow, scol+dayOfWeek).setValue(DayOfWeek.of(dayOfWeek));
+            cells.get(srow+1, scol+dayOfWeek).setValue(startTimes.get(dayOfWeek).toString());
         }
-        return result;
+        for (Integer dayOfWeek: endTimes.keySet()){
+            cells.get(srow+2, scol+dayOfWeek).setValue(endTimes.get(dayOfWeek).toString());
+        }
     }
 }
