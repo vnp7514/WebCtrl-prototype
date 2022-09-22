@@ -122,4 +122,50 @@ somewhere. The user can query this data and get the corresponding times.
   - Room hours use per day 
   - Room hours use per week
 
+### Step 5: Providing Recommended Schedule based on SIS Data and Occupancy Sensor status
+- Determine the start time and end time of each day (business hours). For example, `3statuses` worksheet. 
+  - The start time is the first time when the occupancy value first turns positive (> 0) since 
+  00:00 AM (midnight) that day
+  - The end time is the last time when the occupancy value is positive (> 0) until 11:59 PM that day
+- Add new columns in the Report data from WebCtrl (`ReportRawData` worksheet):
+  1) `Recommended Schedule Based on SIS`
+     - Convert the calculated start time and end time for each day above into text and add it under this column.
+     - The start time and end time should depend on the SIS data.
+     - For example:
+       - SIS Data for VAV 338:
+         - Monday start time: 5:00 AM
+         - Monday end time: 6:00 PM
+         - Tuesday start time: 11:00 AM
+         - Tuesday end time: 6:00 PM
+       - In the same row as VAV-338 in `ReportRawData` worksheet, under the `Recommended Schedule Based on SIS`:
+         - Put the value: "Monday Occupied from 5:00 AM to 6:00 PM \n
+         Tuesday Occupied from 11:00 AM to 6:00 PM" 
+  2) `Recommended Schedule Based on Sensor`
+     - Perform the same conversion as above and put it under this column
+  - **/% For the MVP, this has to be done for all VAVs. In the protoype, only 2 VAVs are done
+  as an example**
+  - **/% For the MVP, there should be a way to identify holidays in the data/graph**
+  - **/% For the MVP, there should be information about the start and end date of a semester available for the user**
+
+### /% Step 6: Calculate occupancy profiles for the AHU based on all occupancy profiles for all VAVs under that AHU
+- Create 3 occupancy profiles: (use the occupancy profile from `OccupancyProfile` worksheet 
+where all the occupancy values are >= 0)
+  - SIS Data
+    - The occupancy value = sum of all the occupancy values under the same time and date from all the VAVS under that AHUs
+    - For example:
+      - AHU 3 has VAV 338 and VAV 337
+      - AHU 3 occupancy value at Monday 00:00 AM = VAV 338 occupancy value at Monday 0:00 AM + VAV 337 occupancy value at Monday 0:00 AM 
+  - Occupancy Sensor Data
+    - Same as SIS Data
+  - Report Data
+    - Same as SIS Data
+
+### /% Step 7: Export the AHU occupancy profiles to Energy calculation:
+  - Assign occupancy values (populations) to each time of energy trend data:
+    
+  - Assign occupancy status (Occupied or Unoccupied) to each time of energy trend data:
+    - Occupancy status is Occupied if the occupancy value is not 0
+    - Occupancy status is Unoccupied if the occupancy value is 0
+
+
 
