@@ -44,7 +44,7 @@ public class Main {
             Workbook output = new Workbook();
             String occupancyName = System.getProperty("user.dir") + "/src/OCCUPANCY.xlsx";
             Workbook occupancyWorkbook = new Workbook(occupancyName);
-            Worksheet occupancyWorksheet = util.getWorksheetFromWorkbook(occupancyWorkbook, "3statuses");
+            Worksheet occupancyWorksheet = util.getWorksheetFromWorkbook(occupancyWorkbook, "AHUOccupancyProfile");
             syncOccupancy(occupancyWorksheet, util.getWorksheetFromWorkbook(preRetrofit, "Energy"));
             oatVsEnergyBasedOnOccupancyValue(util.getWorksheetFromWorkbook(preRetrofit, "Energy"), util.getWorksheetFromWorkbook(preRetrofit, "oatVsEnergy"));
 

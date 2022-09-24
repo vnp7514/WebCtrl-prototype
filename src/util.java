@@ -50,8 +50,8 @@ public class util {
     private static final int CoolingEnergyCol = 8;
     private static final int HeatingEnergyCol = 9;
     public static final int SISOccupancyEnergyCol = 10;
-    public static final int TrendOccupancyEnergyCol = 11;
-    public static final int ReportOccupancyEnergyCol = 12;
+    public static final int TrendOccupancyEnergyCol = 12;
+    public static final int ReportOccupancyEnergyCol = 14;
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm:ss a");
 
     /**
@@ -862,15 +862,17 @@ public class util {
     public static void syncOccupancyTableDataWithEnergyData(Worksheet energyWorksheet, String columnName, TreeMap<Integer, TreeMap<LocalTime, Integer>> ccupancyTablesMapping, int col){
         Cells cells = energyWorksheet.getCells();
         cells.get(0, col).setValue(columnName);
+        cells.get(0, col+1).setValue(columnName+ " occupancy status");
         for (int i = 1; i <= cells.getMaxDataRow(); i++){
             LocalDateTime currentTime = LocalDateTime.parse(cells.get(i, dateEnergyCol).getStringValue(), formatter);
             TreeMap<LocalTime, Integer> currentOccupancyTable = ccupancyTablesMapping.get(currentTime.getDayOfWeek().getValue());
             if (currentOccupancyTable.containsKey(currentTime.toLocalTime())){
                 if (currentOccupancyTable.get(currentTime.toLocalTime()) > 0){
-                    cells.get(i, col).setValue(1);
+                    cells.get(i, col+1).setValue("Occupied");
                 } else {
-                    cells.get(i, col).setValue(currentOccupancyTable.get(currentTime.toLocalTime()));
+                    cells.get(i, col+1).setValue("Unoccupied");
                 }
+                cells.get(i, col).setValue(currentOccupancyTable.get(currentTime.toLocalTime()));
             }
         }
     }

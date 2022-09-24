@@ -161,7 +161,7 @@ where all the occupancy values are >= 0)
     - Same as SIS Data
 
 ### /% Step 7: Export the AHU occupancy profiles to Energy calculation:
-  - Assign occupancy values (populations) to each time of energy trend data:
+  - Assign occupancy values (populations) to each time of energy trend data
     
   - Assign occupancy status (Occupied or Unoccupied) to each time of energy trend data:
     - Occupancy status is Occupied if the occupancy value is not 0
