@@ -112,14 +112,14 @@ public class Main {
 
             // Pull and Store data from WebCtrl
             // Commented out so we dont constantly pull data from WebCtrl
-//            util.makeTrendValuesWorksheets(preRetrofit);
-//            util.makeTrendValuesWorksheets(postRetrofit);
+            util.makeTrendValuesWorksheets(preRetrofit);
+            util.makeTrendValuesWorksheets(postRetrofit);
 
             // Perform all the energy calculations
-//            TrendStuffs(preRetrofit, occupancyWorkbook);
-//            TrendStuffs(postRetrofit, occupancyWorkbook);
-//            graph(preRetrofit);
-//            graph(postRetrofit);
+            TrendStuffs(preRetrofit, occupancyWorkbook);
+            TrendStuffs(postRetrofit, occupancyWorkbook);
+            graph(preRetrofit);
+            graph(postRetrofit);
 
             baseLineCalculation(preRetrofit, postRetrofit, output);
 
