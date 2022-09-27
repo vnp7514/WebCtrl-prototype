@@ -11,7 +11,7 @@ This is a prototype to create a baseline graph from existing data. The data is o
 6. Detailed documentation on NOAA API link: https://www.ncei.noaa.gov/pub/data/cdo/documentation/GHCND_documentation.pdf
 
 ## How to use
-1. Setting up environment variables to login to webctrl. Create a file named `.env` with these values: 
+1. Setting up environment variables to login to webctrl. Create a file named `.env` in the project directory with these values: 
 
 ```
 USER=<User name to login>
@@ -95,25 +95,30 @@ that does not have data for that time, there will be an empty string inserted th
    3) Heating Ti
    4) Heating To
    5) Airflow
+   6) Cooling valve
+   7) Heating valve
    - **Note**: The user will provide these inputs based on the location of temperature sensor
    - **Energy Engineer Note:** Entering temperature is before the coil, leaving temperature is after the coil.
    - Example for AHU-03:
      - For heating
        - Ti = Mixed Air Temperature (from "070_ahu_03_ma_temp (℉)" trend above)
        - To = Preheat Discharge Temperature (from "Preheat Discharge Temp (℉)" trend above)
+       - Heating valve = hot water valve
      - For cooling
        - Ti = Preheat Discharge Temperature (from "Preheat Discharge Temp (℉)" trend above)
        - To = Supply Air Temperature (from "070_ahu_03_sa_temp (℉)" trend above)
+       - Cooling valve = chilled water valve
      - Airflow = Supply Airflow ( from "070_ahu_03_sa_air_flow (cfm)" trend above)
    - **The prototype is using the above values by default. For the MVP, it should allow the user to provide and choose the values.**
 2) Calculate Q values for Cooling and Heating ( units are in brackets [ ] ) (stored in `Energy` worksheet):
     - General formula for Q values:
-      - **Q [Btu/min] = 0.01791 [Btu/(ft^3 . °F)] * Airflow [ft^3/min] * (To [℉] - Ti [℉])**
+      - **Q [Btu/min] = IF valve [%open]> 0 THEN max/min(0.01791 [Btu/(ft^3 . °F)] * Airflow [ft^3/min] * (To [℉] - Ti [℉]), 0) 
+      ELSE 0**
     - Example:
       - Apply the general formula to get Cooling Q value for AHU-03:
-        - Q Cooling [Btu/min] = 0.01791  * Supply Airflow * ( Supply Air Temperature - Preheat Discharge Temperature )
+        - Q Cooling [Btu/min] = IF chilled water valve > 0 THEN MINIMUM( 0, (0.01791  * Supply Airflow * ( Supply Air Temperature - Preheat Discharge Temperature )) ) ELSE 0
       - Apply the general formula to get Heating Q value for AHU-03:
-        - Q Heating [Btu/min] = 0.01791 * Supply Airflow * ( Preheat Discharge Temperature - Mixed Air Temperature )
+        - Q Heating [Btu/min] = IF hot water valve > 0 THEN MAXIMUM( 0, (0.01791 * Supply Airflow * ( Preheat Discharge Temperature - Mixed Air Temperature )) ) ELSE 0
 3) Determine the time interval for energy calculation
    - For the MVP, ideally the time interval will be the time interval in the database for all energy variables specified in step 1  
    - In the prototype code, we are getting the first and second time buckets from Trend Values Sorted worksheet, then use the difference between those as the time interval

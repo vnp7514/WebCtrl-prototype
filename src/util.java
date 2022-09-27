@@ -2,21 +2,11 @@ import Eval.EvalServiceLocator;
 import Eval.EvalSoapBindingStub;
 import ReportWSDL.ReportServiceLocator;
 import ReportWSDL.ReportSoapBindingStub;
-import SystemWSDL.SystemSoapBindingStub;
-import SystemWSDL.SystemapiServiceLocator;
 import Trend.TrendServiceLocator;
 import Trend.TrendSoapBindingStub;
 import com.aspose.cells.*;
 import com.opencsv.CSVReader;
 import io.github.cdimascio.dotenv.Dotenv;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.util.CellRangeAddress;
-import org.apache.poi.xddf.usermodel.chart.*;
-import org.apache.poi.xssf.usermodel.*;
-
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.StringReader;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -33,25 +23,24 @@ public class util {
     private static final int limitFromStartCol = 4;
     private static final int maxRecordsCol = 5;
     private static final int reportNameCol = 2;
-    private static final String ECONOMIZER = "Economizer";
+    private static final String ECONOMIZER = "070_ahu_03_econ_ok_tn";
     private static final String MAT = "070_ahu_03_ma_temp (℉)";
     private static final String SAT = "070_ahu_03_sa_temp (℉)";
     private static final String SACFM = "070_ahu_03_sa_air_flow (cfm)";
     private static final String OAT = "oa_temp  (℉)";
-    private static final String PREHEAT = "Preheat Discharge Temp (℉)";
+    private static final String PREHEAT = "070_ahu_03_phc_da_temp (℉)";
+    private static final String CHW = "070_ahu_03_chw_valve (%open)";
+    private static final String HW = "070_ahu_03_hw_valve (%open)";
     private static final int dateEnergyCol = 0;
     private static final int EconomizerEnergyCol = 1;
-    private static final int OATEnergyCol = 2;
-    private static final int MATEnergyCol = 3;
-    private static final int SATEnergyCol = 4;
-    private static final int PreheatEnergyCol = 5;
-    private static final int QCoolingEnergyCol = 6;
-    private static final int QHeatingEnergyCol = 7;
-    private static final int CoolingEnergyCol = 8;
-    private static final int HeatingEnergyCol = 9;
-    public static final int SISOccupancyEnergyCol = 10;
-    public static final int TrendOccupancyEnergyCol = 12;
-    public static final int ReportOccupancyEnergyCol = 14;
+    private static final int MATEnergyCol = 2;
+    private static final int SATEnergyCol = 3;
+    private static final int OATEnergyCol = 5;
+    private static final int PreheatEnergyCol = 6;
+    private static final int QCoolingEnergyCol = 9;
+    private static final int QHeatingEnergyCol = 10;
+    private static final int CoolingEnergyCol = 11;
+    private static final int HeatingEnergyCol = 12;
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm:ss a");
 
     /**
@@ -469,14 +458,66 @@ public class util {
             makeTrendValuesSortedSheet(workbook, parameters.get(0), sorted);
             ///// END OF TREND VALUES SORTED
 
-            LinkedHashMap<String, ArrayList<Double>> result1 = calculateEnergy(workbook, parameters.get(0), sorted);
+//            LinkedHashMap<String, ArrayList<Double>> result1 = calculateEnergy(workbook, parameters.get(0), sorted);
             // TODO: Ignore for now
             // makeDaySheet(workbook, parameters.get(0), sorted);
-            makeMonthEnergySheet(workbook, result1);
-            makeDayEnergySheet(workbook, result1);
+//            makeMonthEnergySheet(workbook, result1);
+//            makeDayEnergySheet(workbook, result1);
 
         } catch (Exception e){
             System.err.println("baseLineTask error "+e.getMessage());
+        }
+    }
+
+    /**
+     * This will pull data from WebCtrl and create 2 new Worksheet Trend Values and Trend Values Sorted
+     * in which the data from WebCtrl are being stored.
+     * Trend Values stores the raw data from WebCtrl.
+     * Trend Values Sorted stores the data sorted by time from WebCtrl
+     * @param workbook
+     */
+    public static void makeTrendValuesWorksheets(Workbook workbook){
+        try{
+            ArrayList<ArrayList<String>> parameters = getTrendInputsFromExcel(workbook);
+            LinkedHashMap<String, ArrayList<String>> sorted = new LinkedHashMap<>();
+            ArrayList<String[]> data = new ArrayList<>();
+
+            for (int i = 0; i < parameters.get(1).size(); i++){
+                String[] pulledData = util.getDataFromTrend(parameters.get(1).get(i), parameters.get(2).get(i),
+                        parameters.get(3).get(i), Boolean.parseBoolean(parameters.get(4).get(i)), Integer.parseInt(parameters.get(5).get(i)));
+                data.add(pulledData);
+                int a = 0;
+                while (a < pulledData.length){
+                    if (sorted.containsKey(pulledData[a])){
+                        if (sorted.get(pulledData[a]).size() <= i) {
+                            for (int d = sorted.get(pulledData[a]).size(); d < i; d++) {
+                                sorted.get(pulledData[a]).add("");
+                            }
+                            sorted.get(pulledData[a]).add(pulledData[a + 1]);
+                        }
+                    } else {
+                        ArrayList<String> valuesAtThisTime = new ArrayList<>();
+                        for (int d = 0; d < i; d++){
+                            valuesAtThisTime.add("");
+                        }
+                        valuesAtThisTime.add(pulledData[a+1]);
+                        sorted.put(pulledData[a], valuesAtThisTime);
+                    }
+
+                    a+=2;
+                }
+            }
+
+            ///// START OF TREND VALUES
+            makeTrendValuesSheet(workbook, parameters.get(0), data);
+            ////// END OF TREND VALUES
+
+            ///// START OF TREND VALUES SORTED
+            makeTrendValuesSortedSheet(workbook, parameters.get(0), sorted);
+            ///// END OF TREND VALUES SORTED
+
+        } catch (Exception e){
+            System.err.println("Error in pulling TrendValues data "+e.getMessage());
         }
     }
 
@@ -522,125 +563,137 @@ public class util {
     }
 
     /**
-     *
-     * @param workbook the excel sheet where values will be saved to
-     * @param names
-     * @param sorted
-     * @return key is date. value is a list of [cooling energy (MBtu), qheating (MBtu)]
+     * Calculating Energy according to ASHRAE standards
+     * @param QValues The key is date. The value is a list of q values: Cooling Q Value, Heating Q Value
+     * @return The key of this mapping is the date. the value of this mapping is a list of values: Cooling Energy, Heating Energy
+     * @throws Exception
      */
-    private static LinkedHashMap<String, ArrayList<Double>> calculateEnergy(Workbook workbook, ArrayList<String> names, LinkedHashMap<String, ArrayList<String>> sorted){
-        try{
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm:ss a");
-            int econ = 0;
-            int mat = 0;
-            int sat = 0;
-            int sacfm = 0;
-            int oat = 0;
-            int preheat = 0;
-            for (int i = 0; i < names.size(); i++){
-                String name = names.get(i);
-                if (name.equalsIgnoreCase(ECONOMIZER)){
-                    econ = i;
-                } else if (name.equalsIgnoreCase(MAT)){
-                    mat = i;
-                } else if (name.equalsIgnoreCase(SAT)){
-                    sat = i;
-                } else if (name.equalsIgnoreCase(SACFM)){
-                    sacfm = i;
-                } else if (name.equalsIgnoreCase(OAT)){
-                    oat = i;
-                } else if (name.equalsIgnoreCase(PREHEAT)){
-                    preheat = i;
-                }
+    public static LinkedHashMap<String, ArrayList<Double>> calculateEnergy(LinkedHashMap<String, ArrayList<Double>> QValues) {
+        // Getting time interval
+        int count = 0;
+        Double interval = 0.0;
+        for (String date: QValues.keySet()){
+            if (count == 0){
+                LocalDateTime currentDate = LocalDateTime.parse(date, formatter);
+                interval = (double) currentDate.getMinute();
+            } else if (count == 1){
+                LocalDateTime currentDate = LocalDateTime.parse(date, formatter);
+                interval = currentDate.getMinute() - interval;
+            } else {
+                break;
             }
-            if (econ == mat || econ == sat || econ == sacfm || econ == oat || mat == sat
-                    || mat == sacfm || mat == oat || sat == sacfm || sat == oat
-                    || sacfm == oat || econ == preheat || mat == preheat || sat == preheat ||
-                    sacfm == preheat || oat == preheat) {
-                throw new Exception("not enough arguments");
-            }
-
-
-            Worksheet worksheet = getWorksheetFromWorkbook(workbook,"Energy");
-            Cells cells = worksheet.getCells();
-            // Column index
-            int col = 0;
-            // Row index
-            int row = 0;
-            cells.get(row, dateEnergyCol).setValue("Date");
-            cells.get(row, EconomizerEnergyCol).setValue("Economizer");
-            cells.get(row, OATEnergyCol).setValue("OAT");
-            cells.get(row, MATEnergyCol).setValue("MAT");
-            cells.get(row, SATEnergyCol).setValue("SAT");
-            cells.get(row, PreheatEnergyCol).setValue("Preheat");
-            cells.get(row, QCoolingEnergyCol).setValue("QCooling (Btu/min)");
-            cells.get(row, QHeatingEnergyCol).setValue("QHeating (Btu/min)");
-            cells.get(row, CoolingEnergyCol).setValue("Clg Energy from QCooling (thousand Btu)");
-            cells.get(row, HeatingEnergyCol).setValue("Htg Energy from QHeating (thousand Btu)");
-
-            LinkedHashMap<String, ArrayList<Double>> energy = new LinkedHashMap<>();
-            row++;
-            int initialRow = row;
-            // Getting Q values
-            LinkedHashMap<String, Double> qCoolingValues = new LinkedHashMap<>();
-
-            LinkedHashMap<String, Double> qHeatingValues = new LinkedHashMap<>();
-            for (String date : sorted.keySet()){
-                if (sorted.get(date).size() > 6&& !sorted.get(date).get(oat).equalsIgnoreCase("") &&
-                        !sorted.get(date).get(mat).equalsIgnoreCase("") &&
-                        !sorted.get(date).get(sat).equalsIgnoreCase("") &&
-                        !sorted.get(date).get(econ).equalsIgnoreCase("") &&
-                        !sorted.get(date).get(sacfm).equalsIgnoreCase("") &&
-                        !sorted.get(date).get(preheat).equalsIgnoreCase("")) {
-                    ArrayList<String> values = sorted.get(date);
-                    qCoolingValues.put(date, 0.01791 * Double.parseDouble(values.get(sacfm)) *
-                            (Double.parseDouble(values.get(sat)) - Double.parseDouble(values.get(preheat))));
-                    qHeatingValues.put(date, 0.01791 * Double.parseDouble(values.get(sacfm)) *
-                            (Double.parseDouble(values.get(preheat)) - Double.parseDouble(values.get(mat))));
-                }
-            }
-
-            // Getting time interval
-            int count = 0;
-            Double interval = 0.0;
-            for (String date: qCoolingValues.keySet()){
-                if (count == 0){
-                    LocalDateTime currentDate = LocalDateTime.parse(date, formatter);
-                    interval = (double) currentDate.getMinute();
-                } else if (count == 1){
-                    LocalDateTime currentDate = LocalDateTime.parse(date, formatter);
-                    interval = currentDate.getMinute() - interval;
-                } else {
-                    break;
-                }
-                count++;
-            }
-            // Finish getting time interval
-
-            //Writing it to excel
-            for (String date: qCoolingValues.keySet()){
-                cells.get(row, dateEnergyCol).setValue(date);
-                cells.get(row, QCoolingEnergyCol).setValue(qCoolingValues.get(date));
-                cells.get(row, QHeatingEnergyCol).setValue(qHeatingValues.get(date));
-                cells.get(row, EconomizerEnergyCol).setValue(sorted.get(date).get(econ));
-                cells.get(row, OATEnergyCol).setValue(sorted.get(date).get(oat));
-                cells.get(row, MATEnergyCol).setValue(sorted.get(date).get(mat));
-                cells.get(row, SATEnergyCol).setValue(sorted.get(date).get(sat));
-                cells.get(row, PreheatEnergyCol).setValue(sorted.get(date).get(preheat));
-                cells.get(row, HeatingEnergyCol).setValue(qHeatingValues.get(date) * interval / 1000);
-                cells.get(row, CoolingEnergyCol).setValue(qCoolingValues.get(date) * interval / 1000);
-                energy.put(date, new ArrayList<>(Arrays.asList(0.0, 0.0)));
-                energy.get(date).add(0, qCoolingValues.get(date) * interval / 1000);
-                energy.get(date).add(1, qHeatingValues.get(date) * interval / 1000);
-                row++;
-            }
-
-            return energy;
-
-        } catch (Exception e){
-            System.err.println("calculateEnergy error " + e.getMessage());
+            count++;
         }
-        return null;
+        // Finish getting time interval
+
+        LinkedHashMap<String, ArrayList<Double>> energy = new LinkedHashMap<>();
+
+        for (String date: QValues.keySet()){
+            energy.put(date, new ArrayList<>());
+            energy.get(date).add(0, -1 * QValues.get(date).get(0) * interval / 1000);
+            energy.get(date).add(1, QValues.get(date).get(1) * interval / 1000);
+        }
+
+        return energy;
+    }
+
+    /**
+     * Calculating Q values according to ASHRAE standards
+     * @param names The names associated with each values in the list of values above
+     * @param sorted The key of this mapping is the date. The value of this mapping is a list of values.
+     * @return The key is date. The value is a list of q values: Cooling Q Value, Heating Q Value
+     * @throws Exception
+     */
+    public static LinkedHashMap<String, ArrayList<Double>> calculateQValues(ArrayList<String> names, LinkedHashMap<String, ArrayList<String>> sorted) throws Exception {
+        int totalVariables = 8;
+        int econ = 0;
+        int hw = 0;
+        int chw = 0;
+        int mat = 0;
+        int sat = 0;
+        int sacfm = 0;
+        int oat = 0;
+        int preheat = 0;
+        for (int i = 0; i < names.size(); i++){
+            String name = names.get(i);
+            if (name.equalsIgnoreCase(ECONOMIZER)){
+                econ = i;
+            } else if (name.equalsIgnoreCase(MAT)){
+                mat = i;
+            } else if (name.equalsIgnoreCase(SAT)){
+                sat = i;
+            } else if (name.equalsIgnoreCase(SACFM)){
+                sacfm = i;
+            } else if (name.equalsIgnoreCase(OAT)){
+                oat = i;
+            } else if (name.equalsIgnoreCase(PREHEAT)){
+                preheat = i;
+            } else if (name.equalsIgnoreCase(CHW)){
+                chw = i;
+            } else if (name.equalsIgnoreCase(HW)){
+                hw = i;
+            }
+        }
+        if (new HashSet<>(Arrays.asList(econ, mat, sat, sacfm, oat, preheat, hw, chw)).size() != totalVariables){
+            throw new Exception("Not enough arguments!");
+        }
+        // Getting Q values
+        LinkedHashMap<String, ArrayList<Double>> qValues = new LinkedHashMap<>();
+
+        for (String date : sorted.keySet()){
+            ArrayList<String> currentValues = sorted.get(date);
+            if (currentValues.size() >= totalVariables&&
+                    !currentValues.get(oat).equalsIgnoreCase("") &&
+                    !currentValues.get(mat).equalsIgnoreCase("") &&
+                    !currentValues.get(sat).equalsIgnoreCase("") &&
+                    !currentValues.get(econ).equalsIgnoreCase("") &&
+                    !currentValues.get(sacfm).equalsIgnoreCase("") &&
+                    !currentValues.get(preheat).equalsIgnoreCase("")) {
+                Double chwValue = Double.parseDouble(currentValues.get(chw));
+                Double hwValue = Double.parseDouble(currentValues.get(hw));
+                Double satValue = Double.parseDouble(currentValues.get(sat));
+                Double sacfmValue = Double.parseDouble(currentValues.get(sacfm));
+                Double preheatValue = Double.parseDouble(currentValues.get(preheat));
+                Double matValue = Double.parseDouble(currentValues.get(mat));
+                Double qCoolingValue = 0.0;
+                Double qHeatingValue = 0.0;
+
+                // Calculating q Cooling
+                if (chwValue > 0){
+                    qCoolingValue = Math.min(0,
+                            0.01791 * sacfmValue * ( satValue - preheatValue )
+                    );
+                }
+                // Calculating q Heating
+                if (hwValue > 0){
+                    qHeatingValue = Math.max(0,
+                            0.01791 * sacfmValue * ( preheatValue - matValue )
+                            );
+                }
+
+                qValues.put(date, new ArrayList<>(Arrays.asList(qCoolingValue, qHeatingValue)));
+            }
+        }
+        return qValues;
+    }
+
+
+    public static void writeEnergy(Worksheet worksheet, ArrayList<String> names, LinkedHashMap<String, ArrayList<Double>> keyDate_values, int srow, int scol){
+        Cells cells = worksheet.getCells();
+        int row = srow;
+        int col = scol;
+        cells.get(srow, scol).setValue("Date");
+        for (int i = 0; i < names.size(); i++){
+            cells.get(row, col + i + 1).setValue(names.get(i));
+        }
+        for (String date: keyDate_values.keySet()){
+            row++;
+            cells.get(row, col).setValue(date);
+            ArrayList<Double> values = keyDate_values.get(date);
+            for (int i = 0; i< values.size(); i++){
+                cells.get(row, col + i + 1).setValue(values.get(i));
+            }
+        }
     }
 
     public static void makeTrendValuesSheet(Workbook workbook, ArrayList<String> names, ArrayList<String[]> data){
@@ -859,8 +912,9 @@ public class util {
         }
     }
 
-    public static void syncOccupancyTableDataWithEnergyData(Worksheet energyWorksheet, String columnName, TreeMap<Integer, TreeMap<LocalTime, Integer>> ccupancyTablesMapping, int col){
+    public static void syncOccupancyTableDataWithEnergyData(Worksheet energyWorksheet, String columnName, TreeMap<Integer, TreeMap<LocalTime, Integer>> ccupancyTablesMapping){
         Cells cells = energyWorksheet.getCells();
+        int col = cells.getMaxDataColumn()+1;
         cells.get(0, col).setValue(columnName);
         cells.get(0, col+1).setValue(columnName+ " occupancy status");
         for (int i = 1; i <= cells.getMaxDataRow(); i++){
@@ -890,17 +944,47 @@ public class util {
         Cells cells = worksheet.getCells();
         for (int i = 1; i < cells.getMaxDataRow(); i++){
             Integer currentOccupancyValue = cells.get(i, col).getIntValue();
+            Integer currentGroup = 0;
+            if (currentOccupancyValue> 0){
+                currentGroup = 1;
+            } else if (currentGroup == 0){
+                currentGroup = 0;
+            } else {
+                currentGroup = -1;
+            }
             LocalDateTime currentDateTime = LocalDateTime.parse(cells.get(i, dateEnergyCol).getStringValue(), formatter);
             Double currentOAT = Double.parseDouble(cells.get(i, OATEnergyCol).getStringValue());
             Double currentCoolingEnergy = cells.get(i, CoolingEnergyCol).getDoubleValue();
             Double currentHeatingEnergy = cells.get(i, HeatingEnergyCol).getDoubleValue();
-            if (!result.containsKey(currentOccupancyValue)){
-                result.put(currentOccupancyValue, new TreeMap<>());
+            if (!result.containsKey(currentGroup)){
+                result.put(currentGroup, new TreeMap<>());
             }
-            result.get(currentOccupancyValue).put(currentDateTime, new ArrayList<>(Arrays.asList(currentOAT, currentCoolingEnergy, currentHeatingEnergy)));
+            result.get(currentGroup).put(currentDateTime, new ArrayList<>(Arrays.asList(currentOAT, currentCoolingEnergy, currentHeatingEnergy)));
         }
         return result;
     }
+
+    /**
+     * Get the column index of whichever column you need
+     * @param colName the column name that you are looking for
+     * @param worksheet the worksheet
+     * @param row the row that the column is on
+     * @return
+     */
+    public static int getColumnIndexOf( String colName, Worksheet worksheet, int row){
+        Cells cells = worksheet.getCells();
+        int col = -1;
+        for (int i = 0; i <= cells.getMaxDataColumn(); i++){
+            if (cells.get(row, i).getStringValue().equalsIgnoreCase(colName)){
+                col = i;
+                break;
+            }
+        }
+
+        return col;
+
+    }
+
 
     public static void writeOATvsEnergyToExcel(Worksheet worksheet, String name, TreeMap<Integer, TreeMap<LocalDateTime, ArrayList<Double>>> mapping, int row, int col){
         Cells cells = worksheet.getCells();
@@ -922,6 +1006,397 @@ public class util {
             }
             col+=4;
             row = initialRow;
+        }
+    }
+
+    /**
+     *  Get the names of all the trend values in this worksheet
+     *  Starting from column B, row 1 of the worksheet
+     * @param worksheet
+     * @return
+     */
+    public static ArrayList<String> getTrendNames(Worksheet worksheet){
+        Cells cells = worksheet.getCells();
+        ArrayList<String> result = new ArrayList<>();
+        for (int i = 1; i <= cells.getMaxDataColumn(); i++){
+            result.add(cells.get(0, i).getStringValue());
+        }
+        return result;
+    }
+
+    /**
+     * Read the data from the provided worksheet and translate it to a structure that code understands
+     * @param worksheet
+     * @return
+     */
+    public static LinkedHashMap<String, ArrayList<String>> getSortedTrendValues(Worksheet worksheet){
+        LinkedHashMap<String, ArrayList<String>> sorted = new LinkedHashMap<>();
+        Cells cells = worksheet.getCells();
+        int maxRow = cells.getMaxDataRow();
+        int maxCol = cells.getMaxDataColumn();
+        for (int row = 1; row <= maxRow; row++){
+            ArrayList<String> values = new ArrayList<>();
+            String date = cells.get(row, dateEnergyCol).getStringValue();
+            for (int col = 1; col <= maxCol; col++){
+                values.add(cells.get(row, col).getStringValue());
+            }
+            sorted.put(date, values);
+        }
+        return sorted;
+    }
+
+    public static LinkedHashMap<String, ArrayList<Double>> combineStringHashMapAndDoubleHashMap(LinkedHashMap<String, ArrayList<String>> sorted, LinkedHashMap<String, ArrayList<Double>> energy){
+        LinkedHashMap<String, ArrayList<Double>> result = new LinkedHashMap<>();
+        for (String date: energy.keySet()){
+            ArrayList<Double> values = new ArrayList<>();
+            for (String value: sorted.get(date)){
+                if (!value.equalsIgnoreCase("")){
+                    values.add(Double.parseDouble(value));
+                } else {
+                    values.add(0.0);
+                }
+            }
+            values.addAll(energy.get(date));
+            result.put(date, values);
+        }
+        return result;
+    }
+
+    public static LinkedHashMap<String, ArrayList<Double>> combineHashMaps(LinkedHashMap<String, ArrayList<Double>> list1, LinkedHashMap<String, ArrayList<Double>> list2){
+        LinkedHashMap<String, ArrayList<Double>> result = new LinkedHashMap<>();
+        for (String date: list1.keySet()){
+            ArrayList<Double> values = new ArrayList<>();
+            values.addAll(list1.get(date));
+            values.addAll(list2.get(date));
+            result.put(date, values);
+        }
+        return result;
+    }
+
+    public static LinkedHashMap<String, ArrayList<Double>> combineDoubleHashMapWithTreeMap(LinkedHashMap<String, ArrayList<Double>> list1, TreeMap<String, Double> list2){
+        LinkedHashMap<String, ArrayList<Double>> result = new LinkedHashMap<>();
+        for (String date: list1.keySet()){
+            ArrayList<Double> values = new ArrayList<>();
+            values.addAll(list1.get(date));
+            values.add(list2.get(date));
+            result.put(date, values);
+        }
+        return result;
+    }
+
+    /**
+     *
+     * @param worksheet
+     * @param names
+     * @param allData the data with Q values and energy
+     */
+    public static void calculateAndWriteHourlyData(Worksheet worksheet, ArrayList<String> names, LinkedHashMap<String, ArrayList<Double>> allData){
+        LinkedHashMap<LocalDateTime, LinkedHashMap<String, ArrayList<Double>>> hourlyData = calculateHourlyData(allData);
+        writeHourlyData(worksheet, names, hourlyData);
+    }
+
+    public static LinkedHashMap<LocalDateTime, LinkedHashMap<String, ArrayList<Double>>> calculateHourlyData(LinkedHashMap<String, ArrayList<Double>> allData){
+        LinkedHashMap<LocalDateTime, LinkedHashMap<String, ArrayList<Double>>> hourlyData = new LinkedHashMap<>();
+        for (String dateString: allData.keySet()){
+            LocalDateTime date = LocalDateTime.parse(dateString, formatter);
+            LocalDateTime newDate = LocalDateTime.of(date.getYear(), date.getMonthValue(), date.getDayOfMonth(), date.getHour(), 0);
+            if (!hourlyData.containsKey(newDate)){
+                hourlyData.put(newDate, new LinkedHashMap<>());
+            }
+            hourlyData.get(newDate).put(dateString, allData.get(dateString));
+        }
+        return hourlyData;
+    }
+
+    public static void writeHourlyData(Worksheet worksheet, ArrayList<String> names, LinkedHashMap<LocalDateTime, LinkedHashMap<String, ArrayList<Double>>> hourlyData){
+        Cells cells = worksheet.getCells();
+        cells.get(0, 0).setValue("Date");
+        for (int i = 0; i< names.size(); i++){
+            cells.get(0, i+1).setValue(names.get(i));
+        }
+        int row = 1;
+
+        for (LocalDateTime time : hourlyData.keySet()){
+            cells.get(row, 0).setValue(time.toString());
+            LinkedHashMap<String, ArrayList<Double>> keyDate_values = hourlyData.get(time);
+            for (int i = 0; i <names.size(); i++){
+                boolean isTemperature = names.get(i).contains("℉");
+                Double result;
+                if (isTemperature){
+                    int n = keyDate_values.keySet().size();
+                    Double total = 0.0;
+                    for (String date: keyDate_values.keySet()){
+                        total += keyDate_values.get(date).get(i);
+                    }
+                    result = total / n;
+                } else {
+                    Double total = 0.0;
+                    for (String date: keyDate_values.keySet()){
+                        total += keyDate_values.get(date).get(i);
+                    }
+                    result = total;
+                }
+                cells.get(row, i+1).setValue(result);
+            }
+            row++;
+        }
+    }
+
+    public static void writeDailyData(Worksheet worksheet, ArrayList<String> names, LinkedHashMap<LocalDate, LinkedHashMap<String, ArrayList<Double>>> dailyData, LinkedHashMap<String, ArrayList<Double>> NOAAData, int srow, int scol){
+        Cells cells = worksheet.getCells();
+        cells.get(srow, scol).setValue("Date");
+        for (int i = 0; i< names.size(); i++){
+            cells.get(srow, scol+i+1).setValue(names.get(i));
+        }
+        int row = srow+1;
+
+        for (LocalDate time : dailyData.keySet()){
+            cells.get(row, scol).setValue(time.toString());
+            LinkedHashMap<String, ArrayList<Double>> keyDate_values = dailyData.get(time);
+            for (int i = 0; i < names.size(); i++){
+                String name = names.get(i);
+                if (!NOAAData.containsKey(time.toString())){
+                    NOAAData.put(time.toString(), new ArrayList<>(Arrays.asList(0.0,0.0,0.0)));
+                }
+                if (name.equalsIgnoreCase("NOAA Average Temperature (℉)")){
+                    cells.get(row, scol+i+1).setValue(NOAAData.get(time.toString()).get(0));
+                } else if (name.equalsIgnoreCase("NOAA Cooling Degree Days (℉.day)")){
+                    cells.get(row, scol+i+1).setValue(NOAAData.get(time.toString()).get(1));
+                } else if (name.equalsIgnoreCase("NOAA Heating Degree Days (℉.day)")){
+                    cells.get(row, scol+i+1).setValue(NOAAData.get(time.toString()).get(2));
+                } else {
+                    boolean isTemperature = name.contains("℉");
+                    Double result;
+                    if (isTemperature){
+                        int n = keyDate_values.keySet().size();
+                        Double total = 0.0;
+                        for (String date: keyDate_values.keySet()){
+                            total += keyDate_values.get(date).get(i);
+                        }
+                        result = total / n;
+                    } else {
+                        Double total = 0.0;
+                        for (String date: keyDate_values.keySet()){
+                            total += keyDate_values.get(date).get(i);
+                        }
+                        result = total;
+                    }
+                    cells.get(row, scol+i+1).setValue(result);
+                }
+            }
+            row++;
+        }
+    }
+    public static void calculateAndWriteDailyData(Worksheet worksheet, Worksheet NOAAInput, ArrayList<String> names, LinkedHashMap<String, ArrayList<Double>> allData, int srow, int scol){
+        LinkedHashMap<LocalDate, LinkedHashMap<String, ArrayList<Double>>> dailyData = calculateDailyData(allData);
+        LinkedHashMap<String, ArrayList<Double>> NOAAData = APICALL.getDataFromExcel(NOAAInput);
+        ArrayList<String> newNames = new ArrayList<>();
+        newNames.addAll(names);
+        newNames.add("NOAA Average Temperature (℉)");
+        newNames.add("NOAA Cooling Degree Days (℉.day)");
+        newNames.add("NOAA Heating Degree Days (℉.day)");
+        writeDailyData(worksheet, newNames, dailyData, NOAAData, srow, scol);
+    }
+
+    public static LinkedHashMap<Month, LinkedHashMap<String, ArrayList<Double>>> calculateMonthlyData(LinkedHashMap<String, ArrayList<Double>> allData){
+        LinkedHashMap<Month, LinkedHashMap<String, ArrayList<Double>>> monthlyData = new LinkedHashMap<>();
+        for (String dateString: allData.keySet()){
+            LocalDateTime date = LocalDateTime.parse(dateString, formatter);
+            Month month = Month.of(date.getMonthValue());
+            if (!monthlyData.containsKey(month)){
+                monthlyData.put(month, new LinkedHashMap<>());
+            }
+            monthlyData.get(month).put(dateString, allData.get(dateString));
+        }
+        return monthlyData;
+    }
+
+    public static void writeMonthlyData(Worksheet worksheet, ArrayList<String> names, LinkedHashMap<Month, ArrayList<Double>> monthlyNOAAData, LinkedHashMap<Month, LinkedHashMap<String, ArrayList<Double>>> monthlyData, int srow, int scol){
+        Cells cells = worksheet.getCells();
+        cells.get(srow, scol).setValue("Date");
+        for (int i = 0; i < names.size(); i++){
+            cells.get(srow, scol + i + 1).setValue(names.get(i));
+        }
+        int row = srow+1;
+        for (Month month : monthlyData.keySet()){
+            cells.get(row, scol).setValue(month.toString());
+            LinkedHashMap<String, ArrayList<Double>> keyDate_values = monthlyData.get(month);
+            for (int i = 0; i < names.size(); i++){
+                String name = names.get(i);
+                if (!monthlyNOAAData.containsKey(month)){
+                    monthlyNOAAData.put(month, new ArrayList<>(Arrays.asList(0.0,0.0,0.0)));
+                }
+                if (name.equalsIgnoreCase("NOAA Average Temperature (℉)")){
+                    cells.get(row, scol+i+1).setValue(monthlyNOAAData.get(month).get(0));
+                } else if (name.equalsIgnoreCase("NOAA Cooling Degree Days (℉.day/month)")){
+                    cells.get(row, scol+i+1).setValue(monthlyNOAAData.get(month).get(1));
+                } else if (name.equalsIgnoreCase(("NOAA Heating Degree Days (℉.day/month)"))){
+                    cells.get(row, scol+i+1).setValue(monthlyNOAAData.get(month).get(2));
+                } else {
+                    boolean isTemperature = name.contains("℉");
+                    Double result;
+                    if (isTemperature){
+                        int n = keyDate_values.keySet().size();
+                        Double total = 0.0;
+                        for (String date: keyDate_values.keySet()){
+                            total += keyDate_values.get(date).get(i);
+                        }
+                        result = total / n;
+                    } else {
+                        Double total = 0.0;
+                        for (String date: keyDate_values.keySet()){
+                            total += keyDate_values.get(date).get(i);
+                        }
+                        result = total;
+                    }
+                    cells.get(row, scol+i+1).setValue(result);
+                }
+            }
+            row++;
+        }
+    }
+
+    private static LinkedHashMap<Month, ArrayList<Double>> convertNOAADataToMonthly(LinkedHashMap<String, ArrayList<Double>> NOAAData){
+        LinkedHashMap<Month, LinkedHashMap<String, ArrayList<Double>>> monthlyData = new LinkedHashMap<>();
+        for (String date: NOAAData.keySet()){
+            LocalDate currentDate = LocalDate.parse(date, DateTimeFormatter.ISO_LOCAL_DATE);
+            if (!monthlyData.containsKey(currentDate.getMonth())){
+                monthlyData.put(currentDate.getMonth(), new LinkedHashMap<>());
+            }
+            monthlyData.get(currentDate.getMonth()).put(date, NOAAData.get(date));
+        }
+        LinkedHashMap<Month, ArrayList<Double>> result = new LinkedHashMap<>();
+        for (Month month: monthlyData.keySet()){
+            LinkedHashMap<String, ArrayList<Double>> keyDate_values = monthlyData.get(month);
+            ArrayList<Double> endResult = new ArrayList<>();
+
+            // AVerage temperature
+            Double total = 0.0;
+            for (String date : keyDate_values.keySet()){
+                total += keyDate_values.get(date).get(0);
+            }
+            int n = keyDate_values.keySet().size();
+            endResult.add(total/ n);
+
+
+            // CDD
+            total = 0.0;
+            for (String date : keyDate_values.keySet()){
+                total += keyDate_values.get(date).get(1);
+            }
+            endResult.add(total);
+            // HDD
+            total = 0.0;
+            for (String date : keyDate_values.keySet()){
+                total += keyDate_values.get(date).get(2);
+            }
+            endResult.add(total);
+            result.put(month, endResult);
+        }
+        return result;
+    }
+
+    public static void calculateAndWriteMonthlyData(Worksheet worksheet, Worksheet NOAAInput, ArrayList<String> names, LinkedHashMap<String, ArrayList<Double>> allData, int srow, int scol){
+        LinkedHashMap<Month, LinkedHashMap<String, ArrayList<Double>>> monthlyData = calculateMonthlyData(allData);
+        LinkedHashMap<String, ArrayList<Double>> NOAAData = APICALL.getDataFromExcel(NOAAInput);
+        LinkedHashMap<Month, ArrayList<Double>> monthlyNOAAData = convertNOAADataToMonthly(NOAAData);
+        ArrayList<String> newNames = new ArrayList<>();
+        newNames.addAll(names);
+        newNames.add("NOAA Average Temperature (℉)");
+        newNames.add("NOAA Cooling Degree Days (℉.day/month)");
+        newNames.add("NOAA Heating Degree Days (℉.day/month)");
+        writeMonthlyData(worksheet, newNames, monthlyNOAAData, monthlyData, srow, scol);
+    }
+
+    public static LinkedHashMap<LocalDate, LinkedHashMap<String, ArrayList<Double>>> calculateDailyData(LinkedHashMap<String, ArrayList<Double>> allData){
+        LinkedHashMap<LocalDate, LinkedHashMap<String, ArrayList<Double>>> dailyData = new LinkedHashMap<>();
+        for (String dateString: allData.keySet()){
+            LocalDateTime date = LocalDateTime.parse(dateString, formatter);
+            LocalDate newDate = LocalDate.of(date.getYear(), date.getMonthValue(), date.getDayOfMonth());
+            if (!dailyData.containsKey(newDate)){
+                dailyData.put(newDate, new LinkedHashMap<>());
+            }
+            dailyData.get(newDate).put(dateString, allData.get(dateString));
+        }
+        return dailyData;
+    }
+
+    public static LinkedHashMap<DayOfWeek, LinkedHashMap<String, ArrayList<Double>>> calculateDayOfWeekData(LinkedHashMap<String, ArrayList<Double>> allData){
+        LinkedHashMap<DayOfWeek, LinkedHashMap<String, ArrayList<Double>>> dayOfWeekData = new LinkedHashMap<>();
+        for (String dateString: allData.keySet()){
+            LocalDateTime date = LocalDateTime.parse(dateString, formatter);
+            DayOfWeek dayOfWeek = date.getDayOfWeek();
+            if (!dayOfWeekData.containsKey(dayOfWeek)){
+                dayOfWeekData.put(dayOfWeek, new LinkedHashMap<>());
+            }
+            dayOfWeekData.get(dayOfWeek).put(dateString, allData.get(dateString));
+        }
+        return dayOfWeekData;
+    }
+
+    public static LinkedHashMap<Integer, LinkedHashMap<String, ArrayList<Double>>> calculateYearlyData(LinkedHashMap<String, ArrayList<Double>> allData){
+        LinkedHashMap<Integer, LinkedHashMap<String, ArrayList<Double>>> yearlyData = new LinkedHashMap<>();
+        for (String dateString: allData.keySet()){
+            LocalDateTime date = LocalDateTime.parse(dateString, formatter);
+            int year = date.getYear();
+            if (!yearlyData.containsKey(year)){
+                yearlyData.put(year, new LinkedHashMap<>());
+            }
+            yearlyData.get(year).put(dateString, allData.get(dateString));
+        }
+        return yearlyData;
+    }
+
+    public static void calculateMonthlyData(Worksheet worksheet, ArrayList<String> names, LinkedHashMap<String, ArrayList<Double>> allData, int srow, int scol){
+        LinkedHashMap<Month, LinkedHashMap<String, ArrayList<Double>>> monthlyData = new LinkedHashMap<>();
+        for (String dateString: allData.keySet()){
+            LocalDateTime date = LocalDateTime.parse(dateString, formatter);
+            Month month = Month.of(date.getMonthValue());
+            if (!monthlyData.containsKey(month)){
+                monthlyData.put(month, new LinkedHashMap<>());
+            }
+            monthlyData.get(month).put(dateString, allData.get(dateString));
+        }
+
+        Cells cells = worksheet.getCells();
+        int coolingEnergyIndex = names.size();
+        int heatingEnergyIndex = names.size()+1;
+        cells.get(srow, scol).setValue("Month");
+        for (int i = 0; i< names.size(); i++){
+            cells.get(srow, scol+i+1).setValue(names.get(i));
+        }
+        cells.get(srow, scol+coolingEnergyIndex+1).setValue("Cooling Energy (thousand Btu)");
+        cells.get(srow, scol+heatingEnergyIndex+1).setValue("Heating Energy (thousand Btu)");
+
+        int row = srow+1;
+
+        for (Month time : monthlyData.keySet()){
+            cells.get(row, scol).setValue(time.toString());
+            LinkedHashMap<String, ArrayList<Double>> keyDate_values = monthlyData.get(time);
+            for (int i = 0; i <= heatingEnergyIndex; i++){
+
+                boolean isTemperature = false;
+                if (i < names.size()){
+                    isTemperature = names.get(i).contains("℉");
+                }
+                Double result = 0.0;
+                if (isTemperature){
+                    int n = keyDate_values.keySet().size();
+                    Double total = 0.0;
+                    for (String date: keyDate_values.keySet()){
+                        total += keyDate_values.get(date).get(i);
+                    }
+                    result = total / n;
+                } else {
+                    Double total = 0.0;
+                    for (String date: keyDate_values.keySet()){
+                        total += keyDate_values.get(date).get(i);
+                    }
+                    result = total;
+                }
+                cells.get(row, scol+i+1).setValue(result);
+            }
+            row++;
         }
     }
 

@@ -3,11 +3,14 @@ import com.aspose.cells.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class line_chart {
 
+    public static final String CDDVSCOOL = "cddcool";
+    public static final String HDDVSHEAT = "hddheat";
     /**
      * Parse the string to obtain the slope and intercept of the trendline function
      * Example string for equation:
@@ -30,6 +33,12 @@ public class line_chart {
         System.out.println("intercept: "+ intercept);
         ArrayList<Double> results = new ArrayList<>(Arrays.asList(slope, intercept));
         return results;
+    }
+
+    public static ArrayList<Double> getInterceptAndSlope(Worksheet worksheet, String chartName) throws Exception {
+        Chart chart = worksheet.getCharts().get(chartName);
+        chart.calculate();
+        return getInterceptAndSlope(chart.getNSeries().get(0).getTrendLines().get(0).getDataLabels().getText());
     }
 
     /**
@@ -58,6 +67,32 @@ public class line_chart {
     }
 
     /**
+     * Obtain the key-value pair where key is time and
+     * value is a list of 2 values: [Degree days, energy]
+     * @param worksheet the worksheet
+     * @param date the name of the column where the time data are
+     * @param DDString the name of the column where degree days data are
+     * @param EnergyString the name of the column where energy data are
+     * @return
+     */
+    public static LinkedHashMap<String, ArrayList<Double>> getMonthDDEnergy(Worksheet worksheet, String date, String DDString, String EnergyString, int srow){
+        LinkedHashMap<String, ArrayList<Double>> keyMonth_ValueDDEnergy = new LinkedHashMap<>();
+        Cells cells = worksheet.getCells();
+        int ddCol = util.getColumnIndexOf(DDString, worksheet, 0);
+        int energyCol = util.getColumnIndexOf(EnergyString, worksheet, 0);
+        int dateCol = util.getColumnIndexOf(date, worksheet, 0);
+
+        for (int i = srow; i <= cells.getMaxDataRow(); i++){
+            String currentDate = cells.get(i, dateCol).getStringValue();
+            Double currentDD = cells.get(i, ddCol).getDoubleValue();
+            Double currentEnergy = cells.get(i, energyCol).getDoubleValue();
+            keyMonth_ValueDDEnergy.put(currentDate, new ArrayList<>(Arrays.asList(currentDD, currentEnergy)));
+        }
+        return keyMonth_ValueDDEnergy;
+    }
+
+
+    /**
      * Obtain the key-value pair where key is the month value (int) of the year and
      * value is a list of 2 values: [HDD, Heating energy]
      * @param workbook the excel file where the data are stored
@@ -82,10 +117,109 @@ public class line_chart {
         return null;
     }
 
-    public static HashMap<String, ArrayList<Double>> graphBaseLine(Workbook workbook) {
+    public static void graphOATvsEnergy(Worksheet worksheet, String oatString, String coolingEnergyString, String heatingEnergyString){
+        int coolingEnergyCol = util.getColumnIndexOf(coolingEnergyString, worksheet, 0);
+        int heatingEnergyCol = util.getColumnIndexOf(heatingEnergyString, worksheet, 0);
+        int oatCol = util.getColumnIndexOf(oatString, worksheet, 0);
+        Cells cells = worksheet.getCells();
+        int maxRow = cells.getMaxDataRow();
+        int chartIndex = worksheet.getCharts().add(ChartType.SCATTER, 30, 10, 40, 20);
+        Chart chart = worksheet.getCharts().get(chartIndex);
+        chart.getTitle().setText(oatString+" vs Energy");
+        chart.getCategoryAxis().getTitle().setText(oatString);
+        chart.getValueAxis().getTitle().setText("Energy");
+        //Adding NSeries (chart data source) to the chart
+        chart.getNSeries().add(worksheet.getCells().createRange(1, coolingEnergyCol, maxRow, 1).getRefersTo(), true);
+        chart.getNSeries().add(worksheet.getCells().createRange(1, heatingEnergyCol, maxRow, 1).getRefersTo(), true);
+        chart.getNSeries().get(0).setName(coolingEnergyString);
+        chart.getNSeries().get(1).setName(heatingEnergyString);
+        chart.getPlotArea().getArea().setBackgroundColor(Color.getWhite());
+        chart.getPlotArea().getArea().setForegroundColor(Color.getWhite());
+        //Setting the data source for the category data of NSeries
+        chart.getNSeries().setCategoryData(worksheet.getCells().createRange(1,oatCol, maxRow, 1).getRefersTo());
+    }
+
+    public static void graphDegreeDaysvsEnergy(Worksheet worksheet, String coolingDayString, String heatingDayString, String coolingEnergyString, String heatingEnergyString){
+        int coolingEnergyCol = util.getColumnIndexOf(coolingEnergyString, worksheet, 0);
+        int heatingEnergyCol = util.getColumnIndexOf(heatingEnergyString, worksheet, 0);
+        int coolingDaysCol = util.getColumnIndexOf(coolingDayString, worksheet, 0);
+        int heatingDaysCol = util.getColumnIndexOf(heatingDayString, worksheet, 0);
+        Cells cells = worksheet.getCells();
+        int maxRow = cells.getMaxDataRow();
+        int chartIndex = worksheet.getCharts().add(ChartType.SCATTER, 10, 10, 20, 20);
+        Chart chart = worksheet.getCharts().get(chartIndex);
+        chart.setName(CDDVSCOOL);
+        chart.getPlotArea().getArea().setBackgroundColor(Color.getWhite());
+        chart.getPlotArea().getArea().setForegroundColor(Color.getWhite());
+        chart.getTitle().setText(coolingDayString+" vs "+coolingEnergyString);
+        chart.getCategoryAxis().getTitle().setText(coolingDayString);
+        chart.getValueAxis().getTitle().setText(coolingEnergyString);
+        //Adding NSeries (chart data source) to the chart
+        chart.getNSeries().add(worksheet.getCells().createRange(1, coolingEnergyCol, maxRow, 1).getRefersTo(), true);
+        chart.getNSeries().get(0).setName(coolingEnergyString);
+        //Setting the data source for the category data of NSeries
+        chart.getNSeries().setCategoryData(worksheet.getCells().createRange(1,coolingDaysCol, maxRow, 1).getRefersTo());
+        //adding a linear trendline
+        int index = chart.getNSeries().get(0).getTrendLines().add(TrendlineType.LINEAR);
+        Trendline trendline = chart.getNSeries().get(0).getTrendLines().get(index);
+        //Setting the custom name of the trendline.
+        trendline.setName(coolingDayString+" vs "+coolingEnergyString);
+        //Displaying the equation on chart
+        trendline.setDisplayEquation(true);
+        //Displaying the R-Squared value on chart
+        trendline.setDisplayRSquared(true);
+
+        int chartIndex2 = worksheet.getCharts().add(ChartType.SCATTER, 0, 10, 10, 20);
+        Chart chart2 = worksheet.getCharts().get(chartIndex2);
+        chart2.setName(HDDVSHEAT);
+        chart2.getPlotArea().getArea().setBackgroundColor(Color.getWhite());
+        chart2.getPlotArea().getArea().setForegroundColor(Color.getWhite());
+        chart2.getTitle().setText(heatingDayString+" vs "+heatingEnergyString);
+        chart2.getCategoryAxis().getTitle().setText(heatingDayString);
+        chart2.getValueAxis().getTitle().setText(heatingEnergyString);
+        //Adding NSeries (chart data source) to the chart
+        chart2.getNSeries().add(worksheet.getCells().createRange(1, heatingEnergyCol, maxRow, 1).getRefersTo(), true);
+        chart2.getNSeries().get(0).setName(heatingEnergyString);
+        //Setting the data source for the category data of NSeries
+        chart2.getNSeries().setCategoryData(worksheet.getCells().createRange(1,heatingDaysCol, maxRow, 1).getRefersTo());
+        //adding a linear trendline
+        int index2 = chart2.getNSeries().get(0).getTrendLines().add(TrendlineType.LINEAR);
+        Trendline trendline2 = chart2.getNSeries().get(0).getTrendLines().get(index2);
+        //Setting the custom name of the trendline.
+        trendline2.setName(heatingDayString+" vs "+heatingEnergyString);
+        //Displaying the equation on chart
+        trendline2.setDisplayEquation(true);
+        //Displaying the R-Squared value on chart
+        trendline2.setDisplayRSquared(true);
+    }
+
+    public static void graphTimevsEnergy(Worksheet worksheet, String dateString, String coolingEnergyString, String heatingEnergyString){
+        int coolingEnergyCol = util.getColumnIndexOf(coolingEnergyString, worksheet, 0);
+        int heatingEnergyCol = util.getColumnIndexOf(heatingEnergyString, worksheet, 0);
+        int dateCol = util.getColumnIndexOf(dateString, worksheet, 0);
+        Cells cells = worksheet.getCells();
+        int maxRow = cells.getMaxDataRow();
+        int chartIndex = worksheet.getCharts().add(ChartType.SCATTER, 20, 10, 30, 20);
+        Chart chart = worksheet.getCharts().get(chartIndex);
+        chart.getTitle().setText(dateString+" vs Energy");
+        chart.getCategoryAxis().getTitle().setText(dateString);
+        chart.getValueAxis().getTitle().setText("Energy");
+        //Adding NSeries (chart data source) to the chart
+        chart.getPlotArea().getArea().setBackgroundColor(Color.getWhite());
+        chart.getPlotArea().getArea().setForegroundColor(Color.getWhite());
+        chart.getNSeries().add(worksheet.getCells().createRange(1, coolingEnergyCol, maxRow, 1).getRefersTo(), true);
+        chart.getNSeries().add(worksheet.getCells().createRange(1, heatingEnergyCol, maxRow, 1).getRefersTo(), true);
+        chart.getNSeries().get(0).setName(coolingEnergyString);
+        chart.getNSeries().get(1).setName(heatingEnergyString);
+
+        //Setting the data source for the category data of NSeries
+        chart.getNSeries().setCategoryData(worksheet.getCells().createRange(1,dateCol, maxRow, 1).getRefersTo());
+    }
+
+
+    public static HashMap<String, ArrayList<Double>> graphBaseLine(Worksheet worksheet) {
         try {
             HashMap<String, ArrayList<Double>> slopeIntercepts = new HashMap<>();
-            Worksheet worksheet = util.getWorksheetFromWorkbook(workbook, "Month Degree Days");
             int chartIndex = worksheet.getCharts().add(ChartType.SCATTER, 10, 10, 20, 20);
             Chart chart = worksheet.getCharts().get(chartIndex);
             chart.getTitle().setText("CDD vs Cooling Energy");

@@ -10,10 +10,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Scanner;
-import java.util.TreeMap;
+import java.util.*;
 
 public class APICALL {
     private class Data {
@@ -80,6 +77,22 @@ public class APICALL {
             System.err.println(e.getMessage());
         }
         return null;
+    }
+
+    public static LinkedHashMap<String, ArrayList<Double>> getDataFromExcel(Worksheet worksheet){
+        LinkedHashMap<String, ArrayList<Double>> result = new LinkedHashMap<>();
+        Cells inputCells = worksheet.getCells();
+        String station = inputCells.get(1, 0).getStringValue();
+        String startDate = inputCells.get(1,1).getStringValue();
+        String endDate = inputCells.get(1,2).getStringValue();
+        TreeMap<String, Double> keyDate_valueTAVG = retrieveData(station, startDate, endDate);
+        for (String date : keyDate_valueTAVG.keySet()){
+            Double averageTemp = keyDate_valueTAVG.get(date);
+            Double currentDayCDD = averageTemp<=65.0 ? 0 : averageTemp - 65.0;
+            Double currentDayHDD = averageTemp>65.0 ? 0 : 65.0 - averageTemp;
+            result.put(date, new ArrayList<>(Arrays.asList(averageTemp, currentDayCDD, currentDayHDD )));
+        }
+        return result;
     }
 
     public static void saveToExcel(Workbook workbook){

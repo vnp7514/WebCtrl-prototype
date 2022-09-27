@@ -4,9 +4,36 @@ import com.aspose.cells.Workbook;
 import com.aspose.cells.Worksheet;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 
 public class Baseline {
+
+    public static void writeBaseline(Worksheet worksheet, String baselineName, ArrayList<String> names, ArrayList<Double> interceptSlope, LinkedHashMap<String, ArrayList<Double>> keyDate_valueDDEnergy, int srow, int scol){
+        int row = srow;
+        int col = scol;
+        Cells cells = worksheet.getCells();
+        cells.get(row, col).setValue(baselineName);
+        row++;
+        for (int i = 0; i < names.size(); i++){
+            cells.get(row, col+i).setValue(names.get(i));
+        }
+        row++;
+        Double intercept = interceptSlope.get(0);
+        Double slope = interceptSlope.get(1);
+        for (String date: keyDate_valueDDEnergy.keySet()){
+            Double degreeDays = keyDate_valueDDEnergy.get(date).get(0);
+            Double energy = keyDate_valueDDEnergy.get(date).get(1);
+            cells.get(row, col).setValue(date);
+            cells.get(row,col+1).setValue(degreeDays);
+            cells.get(row, col+2).setValue(intercept);
+            cells.get(row, col+3).setValue(slope);
+            cells.get(row, col+4).setValue(energy);
+            cells.get(row, col+5).setValue(degreeDays*slope + intercept);
+            cells.get(row, col+6).setValue(Math.abs(degreeDays*slope + intercept - energy));
+            row++;
+        }
+    }
 
     public static void calculateBaseline(Workbook baseline, Workbook prediction, Workbook output){
         try{

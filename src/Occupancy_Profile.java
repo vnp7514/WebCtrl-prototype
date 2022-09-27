@@ -26,9 +26,9 @@ public class Occupancy_Profile {
     private static final int startTimeEndTimeRowSIS = 8;
     private static final int startTimeEndTimeRowTrend = 38;
     private static final int startTimeEndTimeRowReport = 23;
-    private static final String reportString = "report";
-    private static final String sisString = "SIS";
-    private static final String trendString = "trend";
+    private static final String reportString = "Equipment Schedule ";
+    private static final String sisString = "Event Schedule ";
+    private static final String trendString = "Actual Space Use ";
 
     /**
      * Used to check whether all arrays are of the same size.
@@ -105,24 +105,31 @@ public class Occupancy_Profile {
         try{
             Workbook workbook = new Workbook(fileName);
 
-            ArrayList<String> vavNames = getListOfVAVNames(util.getWorksheetFromWorkbook(workbook, "WebCtrl Input"));
-            ArrayList<String> roomNames = getListOfRoomNamesBasedOnVAVNames(util.getWorksheetFromWorkbook(workbook, "Room Input data0"), vavNames);
-            checkParrallelArrays(vavNames, roomNames);
-            ArrayList<TreeMap<Integer, TreeMap<LocalTime, Integer>>> trendOccupancyProfiles = new ArrayList<>();
-            ArrayList<TreeMap<Integer, TreeMap<LocalTime, Integer>>> sisOccupancyProfiles = new ArrayList<>();
-            ArrayList<TreeMap<Integer, TreeMap<LocalTime, Integer>>> reportOccupancyProfiles = new ArrayList<>();
-            int row = 0;
-            int col = 0;
-            for (int i = 0; i < vavNames.size(); i++){
-                trendOccupancyProfiles.add(occupancyProfileForWebCtrlTrendData(workbook, vavNames.get(i), row+ (i*45), col + (i*2)));
-                sisOccupancyProfiles.add(occupancyProfileForSISData(workbook, vavNames.get(i), roomNames.get(i), row + (i*45)));
-                reportOccupancyProfiles.add(occupancyProfileForWebCtrlReportData(workbook, vavNames.get(i), roomNames.get(i), row + (i*45)));
-            }
-
-            createAHUOccupancyProfile(trendOccupancyProfiles, util.getWorksheetFromWorkbook(workbook, "AHUOccupancyProfile"), occupancyProfileTrend, 0, "AHU Trend");
-            createAHUOccupancyProfile(sisOccupancyProfiles, util.getWorksheetFromWorkbook(workbook, "AHUOccupancyProfile"), occupancyProfileSIS, 0, "AHU SIS");
-            createAHUOccupancyProfile(reportOccupancyProfiles, util.getWorksheetFromWorkbook(workbook, "AHUOccupancyProfile"), occupancyProfileReport, 0, "AHU Report");
+//            ArrayList<String> vavNames = getListOfVAVNames(util.getWorksheetFromWorkbook(workbook, "WebCtrl Input"));
+//            ArrayList<String> roomNames = getListOfRoomNamesBasedOnVAVNames(util.getWorksheetFromWorkbook(workbook, "Room Input data0"), vavNames);
+//            checkParrallelArrays(vavNames, roomNames);
+//            ArrayList<TreeMap<Integer, TreeMap<LocalTime, Integer>>> trendOccupancyProfiles = new ArrayList<>();
+//            ArrayList<TreeMap<Integer, TreeMap<LocalTime, Integer>>> sisOccupancyProfiles = new ArrayList<>();
+//            ArrayList<TreeMap<Integer, TreeMap<LocalTime, Integer>>> reportOccupancyProfiles = new ArrayList<>();
+//            int row = 0;
+//            int col = 0;
+//            for (int i = 0; i < vavNames.size(); i++){
+//                trendOccupancyProfiles.add(occupancyProfileForWebCtrlTrendData(workbook, vavNames.get(i), row+ (i*45), col + (i*2)));
+//                sisOccupancyProfiles.add(occupancyProfileForSISData(workbook, vavNames.get(i), roomNames.get(i), row + (i*45)));
+//                reportOccupancyProfiles.add(occupancyProfileForWebCtrlReportData(workbook, vavNames.get(i), roomNames.get(i), row + (i*45)));
+//            }
+//
+//            createAHUOccupancyProfile(trendOccupancyProfiles, util.getWorksheetFromWorkbook(workbook, "AHUOccupancyProfile"), occupancyProfileTrend, 0, trendString + "AHU");
+//            createAHUOccupancyProfile(sisOccupancyProfiles, util.getWorksheetFromWorkbook(workbook, "AHUOccupancyProfile"), occupancyProfileSIS, 0, sisString + "AHU");
+//            createAHUOccupancyProfile(reportOccupancyProfiles, util.getWorksheetFromWorkbook(workbook, "AHUOccupancyProfile"), occupancyProfileReport, 0, reportString + "AHU");
 //            graphOccupancyProfiles(workbook);
+            TreeMap<Integer, TreeMap<LocalTime, Integer>> sisAHU = getOccupancyTablesMappingsFromExcel(util.getWorksheetFromWorkbook(workbook, "AHUOccupancyProfile"), occupancyProfileSIS, 0);
+            TreeMap<Integer, TreeMap<LocalTime, Integer>> trendAHU = getOccupancyTablesMappingsFromExcel(util.getWorksheetFromWorkbook(workbook, "AHUOccupancyProfile"), occupancyProfileTrend, 0);
+            TreeMap<Integer, TreeMap<LocalTime, Integer>> reportAHU = getOccupancyTablesMappingsFromExcel(util.getWorksheetFromWorkbook(workbook, "AHUOccupancyProfile"), occupancyProfileReport, 0);
+            writeStartTimeEndTimeToExcel(util.getWorksheetFromWorkbook(workbook, "AHUOccupancyProfile"), getStartTime(sisAHU), getEndTime(sisAHU), startTimeEndTimeRowSIS, 0);
+            writeStartTimeEndTimeToExcel(util.getWorksheetFromWorkbook(workbook, "AHUOccupancyProfile"), getStartTime(trendAHU), getEndTime(trendAHU), startTimeEndTimeRowTrend, 0);
+            writeStartTimeEndTimeToExcel(util.getWorksheetFromWorkbook(workbook, "AHUOccupancyProfile"), getStartTime(reportAHU), getEndTime(reportAHU), startTimeEndTimeRowReport, 0);
+
             workbook.save(fileName);
 
         } catch (Exception e){
